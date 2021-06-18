@@ -1,0 +1,1 @@
+option('idasdk', type : 'string', description: 'Path to the IDA SDK location.')
