@@ -11,11 +11,17 @@
 extern "C" {
 #endif
 
+typedef struct nanomips_decoded_op {
+    struct nanomips_operand* op;
+    unsigned int val;
+    bfd_vma base_pc;
+} nanomips_decoded_op;
 
-size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struct nanomips_opcode *op, struct nanomips_operand** out_operands);
+
+size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struct nanomips_opcode *op, nanomips_decoded_op* out_operands);
 void nanomips_disasm_operands (struct disassemble_info *info,
 		 const struct nanomips_opcode *opcode,
-		 bfd_uint64_t insn, bfd_vma insn_pc, unsigned int length, struct nanomips_operand** out_operands);
+		 bfd_uint64_t insn, bfd_vma insn_pc, unsigned int length, nanomips_decoded_op* out_operands);
 
 /* Used to track the state carried over from previous operands in
    an instruction.  */

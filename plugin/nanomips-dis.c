@@ -1,6 +1,6 @@
 #include "nanomips-dis.h"
 
-size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struct nanomips_opcode *out_op, struct nanomips_operand** out_operands)
+size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struct nanomips_opcode *out_op, nanomips_decoded_op* out_operands)
 {
     const struct nanomips_opcode *op, *opend;
     void *is = info->stream;
@@ -17,7 +17,7 @@ size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struc
 
     nanomips_isa = ISA_NANOMIPS32R6;
     nanomips_processor = CPU_NANOMIPS32R6;
-    nanomips_isa = TRUE;
+    nanomips_ase = ASE_xNMS | ASE_TLB; // Standard stuff;
 
     bfd_vma memaddr = memaddr_base;
 
@@ -163,7 +163,7 @@ size_t nanomips_disasm_instr(bfd_vma memaddr_base, disassemble_info *info, struc
 
 void nanomips_disasm_operands (struct disassemble_info *info,
 		 const struct nanomips_opcode *opcode,
-		 bfd_uint64_t insn, bfd_vma insn_pc, unsigned int length, struct nanomips_operand** out_operands)
+		 bfd_uint64_t insn, bfd_vma insn_pc, unsigned int length, nanomips_decoded_op* out_operands)
 {
   const fprintf_ftype infprintf = info->fprintf_func;
   void *is = info->stream;
@@ -232,19 +232,24 @@ void nanomips_disasm_operands (struct disassemble_info *info,
 		&& !have_reloc)
 	      base_pc += length;
 
+        out_operands->base_pc = base_pc;
+        out_operands->op = operand;
+
         // TODO: extract operand here??
-	    // if (operand->type == OP_INT_WORD
-		// || operand->type == OP_UINT_WORD
-		// || operand->type == OP_PC_WORD
-		// || operand->type == OP_GPREL_WORD
-		// || operand->type == OP_IMM_WORD)
+	    if (operand->type == OP_INT_WORD
+		|| operand->type == OP_UINT_WORD
+		|| operand->type == OP_PC_WORD
+		|| operand->type == OP_GPREL_WORD
+		|| operand->type == OP_IMM_WORD)
+            out_operands->val = insn >> 32;
 	    //   print_insn_arg (info, &state, opcode, operand, base_pc,
 		// 	      insn >> 32);
-	    // else if (operand->type != OP_DONT_CARE)
+	    else if (operand->type != OP_DONT_CARE)
+            out_operands->val = nanomips_extract_operand(operand, insn);
 	    //   print_insn_arg (info, &state, opcode, operand, base_pc,
 		// 	      nanomips_extract_operand (operand, insn));
 
-        *out_operands = operand;
+        // *out_operands = operand;
         // memcpy(out_operands, operand, sizeof(*operand));
 
         out_operands++;

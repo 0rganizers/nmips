@@ -23,6 +23,8 @@ summary({
 }, section: 'IDA Paths')
 
 src_files = files(
+  'ana.cpp',
+  'nmips.hpp',
   'nmips.cpp',
   'log.hpp',
   'nanomips-dis.h',
