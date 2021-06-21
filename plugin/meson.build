@@ -13,17 +13,25 @@ sdk_bin = ida_sdk / 'bin'
 sdk_lib = ida_sdk / 'lib'
 plugins = ida_usr / 'plugins'
 
+# TODO: Hardcoded path
+hexrays_sdk = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS/plugins/hexrays_sdk/'
+hexrays_include = hexrays_sdk / 'include'
+
 summary({
   'sdk': ida_sdk,
   'include': sdk_inc,
   'bin': sdk_bin,
   'lib': sdk_lib,
   'user': ida_usr,
-  'plugins': plugins
+  'plugins': plugins,
+  'hexrays': hexrays_sdk
 }, section: 'IDA Paths')
 
 src_files = files(
   'ana.cpp',
+  'emu.cpp',
+  'mgen.hpp',
+  'mgen.cpp',
   'nmips.hpp',
   'nmips.cpp',
   'log.hpp',
@@ -31,7 +39,7 @@ src_files = files(
   'nanomips-dis.c'
 )
 
-sdk_inc_dir = include_directories(sdk_inc)
+sdk_inc_dir = include_directories(sdk_inc, hexrays_include)
 
 # TODO make this generic
 actual_lib_path = sdk_lib / 'x64_mac_clang_32'

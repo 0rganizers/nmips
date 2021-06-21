@@ -1,3 +1,4 @@
+#include "idp.hpp"
 #include "nmips.hpp"
 #include "log.hpp"
 #include "constants.hpp"
@@ -7,8 +8,11 @@
 #include <map>
 #include <string>
 
+#define MIPS_SAVE_RESTORE_TYPE o_idpspec4
+
 std::map<std::string, uint16> opcode_mapping = {
     {"move", MIPS_move},
+    {"movep", MIPS_movep},
 
     /// Logical ops
     {"and", MIPS_and},
@@ -19,6 +23,7 @@ std::map<std::string, uint16> opcode_mapping = {
     {"lbu", MIPS_lbu},
     {"sw", MIPS_sw},
     {"sb", MIPS_sb},
+    {"lwxs", MIPS_lwxs},
 
     /// Math ops
     {"addiu", MIPS_addiu},
@@ -30,19 +35,27 @@ std::map<std::string, uint16> opcode_mapping = {
 
     /// Branching
     {"jalrc", MIPS_jalrc},
-    {"bc", MIPS_j},
+    {"bc", nMIPS_bc},
     {"jrc", MIPS_jrc},
     {"beqzc", MIPS_beqzc},
     {"bnezc", MIPS_bnezc},
     {"balc", MIPS_bal},
-    // TODO, MIPS doesn't have this! {"restore.jrc", MIPS_}
-    // TODO, MIPS doesn't have this! {"bltic", MIPS_}
+    // custom branch instructions
+    {"bltic", nMIPS_bltic},
+    {"bltiuc", nMIPS_bltiuc},
+    {"beqic", nMIPS_beqic},
+    {"bgeiuc", nMIPS_bgeiuc},
+    {"bgeic", nMIPS_bgeic},
+    {"bneic", nMIPS_bneic},
+    {"brsc", MIPS_jrc},
 
     /// Specials
     {"li", MIPS_li},
     {"lapc", MIPS_la},
-    {"save", nMIPS_save},
-    {"restore", nMIPS_restore}
+    {"aluipc", MIPS_la},
+    {"save", MIPS_save},
+    {"restore", MIPS_restore},
+    {"restore.jrc", nMIPS_restore_jrc}
 };
 
 bool plugin_ctx_t::fill_opcode(insn_t &insn, struct nanomips_opcode& op)
@@ -74,7 +87,7 @@ size_t remap_register(size_t reg)
     return reg;
 }
 
-void plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nanomips_decoded_op &op, int idx)
+int plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nanomips_decoded_op &op, int idx)
 {
     struct nanomips_operand* operand = op.op;
     unsigned int uval = op.val;
@@ -82,7 +95,16 @@ void plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, na
     op_t* res = &insn.ops[idx];
     res->dtype = dt_dword;
     bool did_something = true;
+
+    // only used for save restore list.
     bool mode16 = opcode.mask >> 16 == 0;
+    unsigned int bitmask = 0;
+    #define set_reg(num) bitmask = (bitmask | (1 << (num)))
+    unsigned int freg, fp, gp, ra;
+    int count;
+    
+    int next_idx = idx+1;
+
     switch (op.op->type)
     {
         case OP_INT:
@@ -120,6 +142,22 @@ void plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, na
             uval = remap_register(uval);
             res->type = o_reg;
             res->reg = uval; // TODO change mapping here!
+        }
+        break;
+
+        case OP_REG_PAIR:
+        {
+            const struct nanomips_reg_pair_operand *pair_op;
+
+            pair_op = (const struct nanomips_reg_pair_operand *) operand;
+            int reg1 = pair_op->reg1_map[uval];
+            int reg2 = pair_op->reg2_map[uval];
+            res->type = o_reg;
+            res->reg = remap_register(reg1);
+            insn.ops[next_idx].type = o_reg;
+            insn.ops[next_idx].dtype = dt_dword;
+            insn.ops[next_idx].reg = remap_register(reg2);
+            next_idx++;
         }
         break;
 
@@ -163,14 +201,90 @@ void plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, na
 	        res->addr = base_pc + (((uval >> 16) & 0xffff) | (uval << 16));
         break;
 
-        // case OP_SAVE_RESTORE_LIST:
+        case OP_SAVE_RESTORE_LIST:
+            res->type = MIPS_SAVE_RESTORE_TYPE;
+            // specval is a bitmap of the registers to save.
             
+            fp = gp = ra = 0;
 
-        // break;
+            if (mode16)
+            {
+                freg = 30 | (uval >> 4);
+                count = uval & 0xf;
+            }
+            else
+            {
+                freg = (uval >> 6) & 0x1f;
+                count = (uval >> 1) & 0xf;
+                if (count > 0)
+                    gp = uval & 1;
+            }
+
+            if (freg == 30 && count > 0)
+                fp = 1;
+            if ((freg == 31 && count > 0) || (freg == 30 && count > 1))
+                ra = 1;
+
+            if (freg + count == 45)
+                gp = 1;
+
+            count = count - gp;
+            if (fp && count > 0)
+            {
+                freg = (freg & 0x10) | ((freg + 1) % 32);
+                count--;
+            }
+
+            if (ra && count > 0)
+            {
+                freg = (freg & 0x10) | ((freg + 1) % 32);
+                count--;
+            }
+
+            if (fp)
+            {
+                set_reg(30);
+            }
+
+            if (ra)
+            {
+                set_reg(31);
+            }
+
+            if (gp)
+                set_reg(28);
+
+            if (count > 0)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    set_reg(freg + i);
+                }
+            }
+            res->specval = bitmask;
+        break;
+
+        // TODO: this decodes wrong, not sure why??
+        case OP_HI20_PCREL:
+        {
+            res->type = o_mem;
+            
+            if (false)
+            {
+                uval = nanomips_decode_hi20_int_operand (operand, uval);
+                res->addr = uval;
+            }
+            else
+            {
+                res->addr = nanomips_decode_hi20_pcrel_operand (operand, base_pc, uval);
+            }
+        }
+        break;
 
         default:
             LOG("[0x%x] Operand %d not yet implemented!", insn.ea, op.op->type);
             did_something = false;
+            next_idx = idx;
         break;
     }
 
@@ -186,12 +300,15 @@ void plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, na
         }
     }
 
+    return next_idx;
+
 }
 
 //--------------------------------------------------------------------------
 // Analyze an instruction and fill the 'insn' structure
 size_t plugin_ctx_t::ana(insn_t &insn)
 {
+    ensure_mgen_installed();
     // if (ana_state.last_instr_48bits)
     // {
     //     // emit a single nop to cover those bytes!
@@ -201,6 +318,19 @@ size_t plugin_ctx_t::ana(insn_t &insn)
     // }
     // reset.
     ana_state = {};
+
+    // check if this should be a fake jrc
+    auto it = fake_jrc_insn.find(insn.ea);
+    if (it != fake_jrc_insn.end())
+    {
+        insn.itype = MIPS_jrc;
+        insn.Op1.type = o_reg;
+        insn.Op1.dtype = dt_dword;
+        insn.Op1.reg = str2reg("ra");
+        insn.size = it->second;
+        return insn.size;
+    }
+
     struct nanomips_opcode op = {};
     nanomips_decoded_op operands[MAX_NUM_OPS] = {};
     size_t insn_size = nanomips_disasm_instr(insn.ea, &disasm_info, &op, operands);
@@ -217,11 +347,18 @@ size_t plugin_ctx_t::ana(insn_t &insn)
     bool remapped = fill_opcode(insn, op);
     if (!remapped) return insn_size;
 
+    int op_idx = 0;
+
     for (int i = 0; i < MAX_NUM_OPS; i++) {
         nanomips_decoded_op curr_op = operands[i];
         if (curr_op.op == NULL) break;
 
-        fill_operand(insn, op, curr_op, i);
+        // don't care operand, we should skip!
+        if (curr_op.op->type == OP_DONT_CARE) {
+            continue;
+        }
+
+        op_idx = fill_operand(insn, op, curr_op, op_idx);
     }
 
     // so that post process can modify this.
@@ -247,6 +384,7 @@ void plugin_ctx_t::post_process(insn_t &insn)
     switch (insn.itype) {
         case MIPS_lw:
         case MIPS_lb:
+        case MIPS_lbu:
         case MIPS_sw:
         case MIPS_sb:
         // switch to o_disp operand
@@ -264,7 +402,19 @@ void plugin_ctx_t::post_process(insn_t &insn)
 
         case MIPS_j:
         case MIPS_bal:
+        case nMIPS_bc:
             insn.ops[0].type = o_near;
+        break;
+
+        // IDA only knows 32bit version, aka jalrc dst, src.
+        // so fake that here!
+        case MIPS_jalrc:
+        if (insn.Op2.type == o_void)
+        {
+            insn.Op2 = insn.Op1;
+            insn.Op1.type = o_reg;
+            insn.Op1.reg = str2reg("ra");
+        }
         break;
 
         case MIPS_beqz:
@@ -272,6 +422,32 @@ void plugin_ctx_t::post_process(insn_t &insn)
         case MIPS_bnez:
         case MIPS_bnezc:
             insn.ops[1].type = o_near;
+        break;
+
+        case nMIPS_beqic:
+        case nMIPS_bgeiuc:
+        case nMIPS_bgeic:
+        case nMIPS_bltic:
+        case nMIPS_bltiuc:
+        case nMIPS_bneic:
+            insn.ops[2].type = o_near;
+        break;
+
+        // convert into a restore, followed by a jrc instruction.
+        // restore also needs to have an empty first op.
+        case nMIPS_restore_jrc:
+            insn.itype = MIPS_restore;
+            fake_jrc_insn[insn.ea+1] = insn.size - 1;
+            insn.size = 1;
+        case MIPS_save:
+        case MIPS_restore:
+            insn.Op3 = insn.Op2;
+            insn.Op2 = insn.Op1;
+            insn.Op1.type = MIPS_SAVE_RESTORE_TYPE;
+            insn.Op1.specval = 0;
+            insn.Op1.dtype = 0;
+            insn.flags = INSN_64BIT;
+            insn.Op1.clr_shown(); // Hide
         break;
     }
 }

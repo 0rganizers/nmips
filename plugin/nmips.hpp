@@ -4,6 +4,9 @@
 #include "nanomips-dis.h"
 #include <ida.hpp>
 #include <idp.hpp>
+#include <map>
+#include <set>
+#include "mgen.hpp"
 
 enum nanomips_extra_inst_t
 {
@@ -11,9 +14,10 @@ enum nanomips_extra_inst_t
 
     // save / restore
     nMIPS_save,
-    nMIPS_restore,
+    nMIPS_restore_jrc,
 
     // branch instructions
+    nMIPS_bc,
     nMIPS_beqic,
     nMIPS_bgeic,
     nMIPS_bgeiuc,
@@ -21,6 +25,10 @@ enum nanomips_extra_inst_t
     nMIPS_bltiuc,
     nMIPS_bneic,
 };
+
+
+uint32 get_feature(nanomips_extra_inst_t inst);
+
 
 struct insn_analysis_state_t
 {
@@ -58,6 +66,11 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
 
     // state analyzing instruction.
     insn_analysis_state_t ana_state = {};
+
+    nmips_microcode_gen_t* mgen = nullptr;
+    bool did_check_hexx = false;
+
+    std::map<ea_t, size_t> fake_jrc_insn;
 
     plugin_ctx_t();
     ~plugin_ctx_t();
@@ -101,11 +114,17 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
     * @param  &insn: The instruction where we want to store the result operand.
     * @param  op: The decoded operand.
     * @param  idx: The idx of the operand in the instruction.
-    * @retval None
+    * @retval next operand index
     */
-    void fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nanomips_decoded_op& op, int idx);
+    int fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nanomips_decoded_op& op, int idx);
 
     void post_process(insn_t &insn);
+
+    void handle_operand(insn_t &insn, op_t &op);
+
+    int emu(insn_t &insn);
+
+    void ensure_mgen_installed();
 };
 
 #endif /* __NMIPS_H */

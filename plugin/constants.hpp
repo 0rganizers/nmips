@@ -14,4 +14,6 @@
 
 #define ELF_NANOMIPS 0xf9
 
+#define CCF_COND 0x200000
+
 #endif /* __CONSTANTS_H */

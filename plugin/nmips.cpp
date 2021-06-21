@@ -10,7 +10,9 @@
 #include <bytes.hpp>
 #include <loader.hpp>
 #include <kernwin.hpp>
+#include <map>
 #include <stdarg.h>
+#include "hexrays.hpp"
 #include "log.hpp"
 #include "nanomips-dis.h"
 #include <allins.hpp>
@@ -65,16 +67,55 @@ bool supported_machine()
     return false;
 }
 
+uint32 get_feature(nanomips_extra_inst_t inst)
+{
+    switch (inst) {
+    case nMIPS_bc:
+        return CF_JUMP;
+    case nMIPS_bltic:
+    case nMIPS_bltiuc:
+    case nMIPS_beqic:
+    case nMIPS_bgeic:
+    case nMIPS_bgeiuc:
+    case nMIPS_bneic:
+        return CF_JUMP | CCF_COND;
+    }
+
+    return 0;
+}
+
 //--------------------------------------------------------------------------
 // Return the instruction mnemonics
 const char *plugin_ctx_t::get_insn_mnem(const insn_t &insn)
 {
-    struct nanomips_opcode op = {};
-    nanomips_decoded_op operands[MAX_NUM_OPS] = {};
-    size_t insn_size = nanomips_disasm_instr(insn.ea, &disasm_info, &op, operands);
-    //LOG("Decoded instruction of size: %d", insn_size);
+    if (insn.itype == nMIPS_todo)
+    {
+        struct nanomips_opcode op = {};
+        nanomips_decoded_op operands[MAX_NUM_OPS] = {};
+        size_t insn_size = nanomips_disasm_instr(insn.ea, &disasm_info, &op, operands);
+        //LOG("Decoded instruction of size: %d", insn_size);
 
-    return op.name;
+        return op.name;
+    }
+
+    switch (insn.itype) {
+    case nMIPS_bltic:
+        return "bltic";
+    case nMIPS_bltiuc:
+        return "bltiuc";
+    case nMIPS_bc:
+        return "bc";
+    case nMIPS_beqic:
+        return "beqic";
+    case nMIPS_bgeic:
+        return "bgeic";
+    case nMIPS_bgeiuc:
+        return "bgeiuc";
+    case nMIPS_bneic:
+        return "bneic";
+    }
+
+    return "unknown";
 }
 
 //--------------------------------------------------------------------------
@@ -133,11 +174,76 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
             const insn_t &insn = ctx->insn;
             if ( insn.itype >= CUSTOM_INSN_ITYPE )
             {
-            ctx->out_line(get_insn_mnem(insn), COLOR_INSN);
-            return 1;
+                ctx->out_custom_mnem(get_insn_mnem(insn));
+                return 1;
             } else {
             // LOG("instruction @0x%x, is not custom", insn.ea);
             }
+        }
+        break;
+        case processor_t::ev_emu_insn:
+        {
+            insn_t *insn = va_arg(va, insn_t*);
+            return emu(*insn);
+        }
+        break;
+        case processor_t::ev_is_basic_block_end:
+        {
+            insn_t *insn = va_arg(va, insn_t *);
+            if (insn != NULL)
+                LOG("[0x%x] is_basic_block_end", insn->ea);
+            switch (insn->itype) {
+            case nMIPS_bltic:
+            case nMIPS_bltiuc:
+            case nMIPS_beqic:
+            case nMIPS_bgeic:
+            case nMIPS_bgeiuc:
+            case nMIPS_bneic:
+            case nMIPS_bc:
+                return 1;
+            case nMIPS_todo:
+                return -1;
+            }
+        }
+        break;
+        case processor_t::ev_delay_slot_insn:
+        {
+            ea_t *ea = va_arg(va, ea_t *);
+            if (ea != NULL)
+                LOG("[0x%x] delay_slot_insn", *ea);
+            *ea = BADADDR;
+            // We don't have delay slots in nanoMIPS, so can safely always return -1 here!
+            return -1;
+        }
+        break;
+        case processor_t::ev_is_cond_insn:
+        {
+            insn_t *insn = va_arg(va, insn_t *);
+            LOG("[0x%x] is_cond_insn", insn->ea);
+            if (insn->itype > nMIPS_todo)
+            {
+                switch (insn->itype) {
+                case nMIPS_bltic:
+                case nMIPS_bltiuc:
+                case nMIPS_beqic:
+                case nMIPS_bgeic:
+                case nMIPS_bgeiuc:
+                case nMIPS_bneic:
+                    return 1;
+
+                default:
+                    return -1;
+                }
+            }
+        }
+        break;
+        case processor_t::ev_get_reg_name:
+        {
+            qstring *buf = va_arg(va, qstring *);
+            int reg = va_arg(va, int);
+            size_t width = va_arg(va, size_t);
+
+            LOG("get_reg_name: reg: %d, width: %ld", reg, width);
         }
         break;
     }
@@ -192,8 +298,31 @@ plugin_ctx_t::plugin_ctx_t()
 plugin_ctx_t::~plugin_ctx_t()
 {
     clr_module_data(data_id);
+    delete mgen;
     // listeners are uninstalled automatically
     // when the owner module is unloaded
+}
+
+void plugin_ctx_t::ensure_mgen_installed()
+{
+    if (this->did_check_hexx) return;
+    LOG("Installing mgen filter!");
+
+    this->did_check_hexx = true;
+    if ( !init_hexrays_plugin() )
+    {
+        ERR("Hexrays not detected, not installing microcode filter!");
+        return;
+    }
+
+    mgen = new nmips_microcode_gen_t;
+    bool result = install_microcode_filter(mgen);
+    if (!result)
+    {
+        ERR("Failed to install microcode filter!");
+    } else {
+        LOG("Successfully installed mgen filter!");
+    }
 }
 
 //--------------------------------------------------------------------------
