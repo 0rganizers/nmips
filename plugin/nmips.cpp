@@ -5,25 +5,49 @@
  */
 
 #include "nmips.hpp"
+#include <algorithm>
 #include <ida.hpp>
 #include <idp.hpp>
 #include <bytes.hpp>
 #include <loader.hpp>
+#include <iterator>
 #include <kernwin.hpp>
 #include <map>
+#include <nalt.hpp>
 #include <stdarg.h>
+#include "elf_ldr.hpp"
+#include "funcs.hpp"
 #include "hexrays.hpp"
 #include "log.hpp"
+#include "mopt.hpp"
 #include "nanomips-dis.h"
 #include <allins.hpp>
 #include <ua.hpp>
 #include "constants.hpp"
 #include "pro.h"
 #include <loader.hpp>
+#include "ins.hpp"
+#include <vector>
+
+#include "elf/elfbase.h"
+#include "elf/elf.h"
+#include "loguru.hpp"
+#include "segment.hpp"
+#include "segregs.hpp"
+#include "typeinf.hpp"
+#include "reg.hpp"
 
 int data_id;
 
-static const char node_name[] = "nanoMIPS Hooked";
+static const char node_name[] = "$ nanoMIPS Hooked";
+
+#define GPR_A0 (4)
+std::vector<std::string> nanomips_gpr_names = {
+  "zero", "at",   "t4",   "t5",   "a0",   "a1",   "a2",   "a3",
+  "a4",   "a5",   "a6",   "a7",   "t0",   "t1",   "t2",   "t3",
+  "s0",   "s1",   "s2",   "s3",   "s4",   "s5",   "s6",   "s7",
+  "t8",   "t9",   "k0",   "k1",   "gp",   "sp",   "fp",   "ra"
+}; 
 
 /**
  * @brief  Used for disassembling, reads memory via ida's api.
@@ -69,16 +93,10 @@ bool supported_machine()
 
 uint32 get_feature(nanomips_extra_inst_t inst)
 {
-    switch (inst) {
-    case nMIPS_bc:
-        return CF_JUMP;
-    case nMIPS_bltic:
-    case nMIPS_bltiuc:
-    case nMIPS_beqic:
-    case nMIPS_bgeic:
-    case nMIPS_bgeiuc:
-    case nMIPS_bneic:
-        return CF_JUMP | CCF_COND;
+    auto it = nanomips_insn.find(inst);
+    if (it != nanomips_insn.end())
+    {
+        return it->second.features;
     }
 
     return 0;
@@ -98,24 +116,24 @@ const char *plugin_ctx_t::get_insn_mnem(const insn_t &insn)
         return op.name;
     }
 
-    switch (insn.itype) {
-    case nMIPS_bltic:
-        return "bltic";
-    case nMIPS_bltiuc:
-        return "bltiuc";
-    case nMIPS_bc:
-        return "bc";
-    case nMIPS_beqic:
-        return "beqic";
-    case nMIPS_bgeic:
-        return "bgeic";
-    case nMIPS_bgeiuc:
-        return "bgeiuc";
-    case nMIPS_bneic:
-        return "bneic";
+    auto it = nanomips_insn.find((nanomips_extra_inst_t)insn.itype);
+    if (it != nanomips_insn.end()) {
+        return it->second.mnemonic;
     }
 
     return "unknown";
+}
+
+void plugin_ctx_t::on_hooked()
+{
+    // this is very hacky, but I think needed so that we can change the names everywhere :/
+    size_t idx = 0;
+    const char** reg_names = (const char**)PH.reg_names;
+    for (auto &name: nanomips_gpr_names)
+    {
+        reg_names[idx] = name.c_str();
+        idx++;
+    }
 }
 
 //--------------------------------------------------------------------------
@@ -151,6 +169,46 @@ const char *plugin_ctx_t::get_insn_mnem(const insn_t &insn)
 // No cross-references are created. No special processing.
 ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
 {
+    if (code == processor_t::ev_oldfile)
+    {
+        char* fname = va_arg(va, char*);
+        LOG("loaded old file %s", fname);
+        
+        nec_node.create(node_name);
+        hooked = nec_node.altval(0);
+        if (hooked)
+        {
+            on_hooked();
+        }
+        return 0;
+    }
+    if (code == processor_t::ev_loader_elf_machine)
+    {
+        linput_t* li = va_arg(va, linput_t*);
+        int machine_type = va_arg(va, int);
+        const char** p_procname = va_arg(va, const char**);
+        proc_def_t** p_pd = va_arg(va, proc_def_t**);
+        LOG("loader_elf_machine(0x%x)", machine_type);
+        if (machine_type == ELF_NANOMIPS) {
+            LOG("nanoMIPS elf detected!");
+            *p_procname = "mipsl";
+            /*elf_loader_t loader(li, 0);
+            reader_t reader(li);
+            elf_nmips = new elf_nanomips_t(loader, reader);*/
+            LOG("loader_elf_machine(%p)", *p_pd);
+            elf_mips_t* elf_mips = (elf_mips_t*)*p_pd;
+            elf_nmips = new elf_nanomips_t(elf_mips);
+            elf_nmips->plugin = this;
+            *p_pd = elf_nmips;
+            // ensure we hook next time as well!
+            hooked = true;
+            nec_node.create(node_name);
+            nec_node.altset(0, hooked);
+            on_hooked();
+            return ELF_NANOMIPS;
+        }
+    }
+    if (!hooked) return 0;
     switch ( code )
     {
         case processor_t::ev_ana_insn:
@@ -181,36 +239,55 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
             }
         }
         break;
+        case processor_t::ev_out_operand:
+        {
+            outctx_t* outctx = va_arg(va, outctx_t*);
+            op_t* op = va_arg(va, op_t*);
+            
+            // LOG("[0x%x] out_operand (%d)", outctx->insn_ea, outctx->insn.itype);
+        }
+        break;
+        case processor_t::ev_is_switch:
+        {
+            switch_info_t* si = va_arg(va, switch_info_t*);
+            const insn_t* insn = va_arg(va, const insn_t*);
+
+            return is_switch(si, insn) ? 1 : 0;
+        }
+        break;
+        case processor_t::ev_may_be_func:
+        {
+            insn_t* insn = va_arg(va, insn_t*);
+            int state = va_arg(va, int);
+
+            int ret = may_be_func(insn, state);
+            // LOG("[0x%x] may_be_func = %d", insn->ea, ret);
+            return ret;
+        }
+        break;
         case processor_t::ev_emu_insn:
         {
             insn_t *insn = va_arg(va, insn_t*);
+            // LOG("[0x%x] emu", insn->ea);
             return emu(*insn);
         }
         break;
         case processor_t::ev_is_basic_block_end:
         {
             insn_t *insn = va_arg(va, insn_t *);
-            if (insn != NULL)
-                LOG("[0x%x] is_basic_block_end", insn->ea);
-            switch (insn->itype) {
-            case nMIPS_bltic:
-            case nMIPS_bltiuc:
-            case nMIPS_beqic:
-            case nMIPS_bgeic:
-            case nMIPS_bgeiuc:
-            case nMIPS_bneic:
-            case nMIPS_bc:
-                return 1;
-            case nMIPS_todo:
-                return -1;
-            }
+            // if (insn != NULL)
+                // LOG("[0x%x] is_basic_block_end", insn->ea);
+            if (insn->itype < nMIPS_todo) return 0;
+            uint32 feature = get_feature((nanomips_extra_inst_t)insn->itype);
+            if ((feature & CF_JUMP) == CF_JUMP) return 1;
+            return -1;
         }
         break;
         case processor_t::ev_delay_slot_insn:
         {
             ea_t *ea = va_arg(va, ea_t *);
-            if (ea != NULL)
-                LOG("[0x%x] delay_slot_insn", *ea);
+            // if (ea != NULL)
+                // LOG("[0x%x] delay_slot_insn", *ea);
             *ea = BADADDR;
             // We don't have delay slots in nanoMIPS, so can safely always return -1 here!
             return -1;
@@ -219,7 +296,7 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
         case processor_t::ev_is_cond_insn:
         {
             insn_t *insn = va_arg(va, insn_t *);
-            LOG("[0x%x] is_cond_insn", insn->ea);
+            // LOG("[0x%x] is_cond_insn", insn->ea);
             if (insn->itype > nMIPS_todo)
             {
                 switch (insn->itype) {
@@ -229,6 +306,14 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
                 case nMIPS_bgeic:
                 case nMIPS_bgeiuc:
                 case nMIPS_bneic:
+                case nMIPS_bltc:
+                case nMIPS_bltuc:
+                case nMIPS_bgec:
+                case nMIPS_bgeuc:
+                case nMIPS_beqc:
+                case nMIPS_bnec:
+                case nMIPS_bgezc:
+                case nMIPS_blezc:
                     return 1;
 
                 default:
@@ -237,15 +322,86 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
             }
         }
         break;
+        case processor_t::ev_is_call_insn:
+        {
+            insn_t* insn = va_arg(va, insn_t*);
+            if (insn->itype < nMIPS_todo) return 0;
+        }
+        break;
         case processor_t::ev_get_reg_name:
         {
             qstring *buf = va_arg(va, qstring *);
             int reg = va_arg(va, int);
             size_t width = va_arg(va, size_t);
-
-            LOG("get_reg_name: reg: %d, width: %ld", reg, width);
+            // LOG("get_reg_name: reg: %d, width: %ld, buf: %p", reg, width, buf);
+            if (reg >= nanomips_gpr_names.size()) return -1;
+            std::string reg_name = nanomips_gpr_names[reg];
+            if (buf == NULL)
+                buf = new qstring;
+            buf->append(reg_name.c_str(), reg_name.size());
+            return reg_name.size();
+            // 
         }
         break;
+        case processor_t::ev_str2reg:
+        {
+            const char* regname = va_arg(va, const char*);
+            auto it = std::find(nanomips_gpr_names.begin(), nanomips_gpr_names.end(), regname);
+            if (it != nanomips_gpr_names.end())
+            {
+                return std::distance(nanomips_gpr_names.begin(), it) + 1;
+            }
+        }
+        break;
+        case processor_t::ev_calc_retloc:
+        {
+            argloc_t *retloc    = va_arg(va, argloc_t *);
+            const tinfo_t *type = va_arg(va, const tinfo_t *);
+            cm_t cc             = va_argi(va, cm_t);
+            bool arg = false;
+            return calc_retloc(retloc, *type, cc, arg) ? 1 : -1;
+        }
+        break;
+        case processor_t::ev_get_cc_regs:
+        {
+            callregs_t* callregs = va_arg(va, callregs_t*);
+            cm_t cc = va_arg(va, cm_t);
+            const int *regs;
+            // LOG("get_cc_regs(%p)", callregs);
+            get_arg_regs(&regs);
+            callregs->set(ARGREGS_FP_CONSUME_GP, regs, NULL);
+            return 1;
+        }
+        break;
+        case processor_t::ev_calc_arglocs:
+        {
+            func_type_data_t *fti = va_arg(va, func_type_data_t *);
+            return calc_arglocs(fti) ? 1 : -1;
+        }
+        break; 
+        case processor_t::ev_calc_varglocs:
+        {
+            func_type_data_t *fti = va_arg(va, func_type_data_t *);
+            regobjs_t *regargs    = va_arg(va, regobjs_t *);
+            relobj_t *stkargs = va_arg(va, relobj_t *);
+            int nfixed = va_arg(va, int);
+            // LOG("calc_varglocs(%p, %p, %p, %d)", fti, regargs, stkargs, nfixed);
+            return calc_varglocs(fti, regargs, nfixed) ? 1 : -1;
+        }
+        break;
+        case processor_t::ev_calc_cdecl_purged_bytes:
+        // calculate number of purged bytes after call
+        {
+            // ea_t ea                     = va_arg(va, ea_t);
+            return 0;
+        }
+        break;
+        case processor_t::ev_get_stkarg_offset:
+        {
+            return 0;
+        }                            // get offset from SP to the first stack argument
+        break;                           // args: none
+                                    // returns: the offset+2
     }
     return 0;                     // event is not processed
 }
@@ -261,9 +417,15 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
 // whether your plugin wants to work with the database or not.
 static plugmod_t *idaapi init()
 {
+    const char* log_file = get_plugin_options("nmips_log_file");
+    int argc = 0;
+    // loguru::init(argc, nullptr);
+    if (log_file != nullptr)
+        loguru::add_file(log_file, loguru::Truncate, loguru::Verbosity_MAX);
+    LOG("Logging to log file %s", log_file);
     processor_t &ph = PH;
-    if ( ph.id != PLFM_MIPS )
-        return nullptr;
+    /*if ( ph.id != PLFM_MIPS )
+        return nullptr;*/
     auto plugmod = new plugin_ctx_t;
     set_module_data(&data_id, plugmod);
     return plugmod;
@@ -272,17 +434,27 @@ static plugmod_t *idaapi init()
 //-------------------------------------------------------------------------
 plugin_ctx_t::plugin_ctx_t()
 {
-    nec_node.create(node_name);
+    bool result = nec_node.create(node_name);
+    if (result)
+    {
+        LOG("Created new nec_node");
+    } else {
+        LOG("Nec node already exists");
+    }
     hooked = nec_node.altval(0) != 0;
-    if ( hooked )
+    if ( hooked || true)
     {
         hook_event_listener(HT_IDP, this);
         msg("nanoMIPS processor support is enabled\n");
     }
-    if (!supported_machine())
+    if (hooked)
+    {
+        on_hooked();
+    }
+    /*if (!supported_machine())
     {
         LOG("Warning: enabled, but this is not a nanoMIPS elf!");
-    }
+    }*/
     init_disassemble_info(&disasm_info, NULL, ida_printf);
     disasm_info.arch = bfd_arch_nanomips;
     disasm_info.mach = bfd_mach_nanomipsisa32r6;
@@ -308,12 +480,13 @@ void plugin_ctx_t::ensure_mgen_installed()
     if (this->did_check_hexx) return;
     LOG("Installing mgen filter!");
 
-    this->did_check_hexx = true;
     if ( !init_hexrays_plugin() )
     {
         ERR("Hexrays not detected, not installing microcode filter!");
         return;
     }
+
+    this->did_check_hexx = true;
 
     mgen = new nmips_microcode_gen_t;
     bool result = install_microcode_filter(mgen);
@@ -322,6 +495,19 @@ void plugin_ctx_t::ensure_mgen_installed()
         ERR("Failed to install microcode filter!");
     } else {
         LOG("Successfully installed mgen filter!");
+    }
+
+    install_optinsn_handler(&mopt);
+
+    segment_t* got = get_segm_by_name(".got");
+    LOG("Found got segment: 0x%x", got->start_ea);
+    got_location = got->start_ea;
+
+    if (!set_default_sreg_value(NULL, 0x44, got_location))
+    {
+        ERR("failed to set default sreg value to: 0x%x", got_location);
+    } else {
+        LOG("Successfully set default sreg value to: 0x%x", got_location);
     }
 }
 
@@ -340,6 +526,10 @@ bool idaapi plugin_ctx_t::run(size_t)
     hooked = !hooked;
     nec_node.create(node_name);
     nec_node.altset(0, hooked);
+    if (hooked)
+    {
+        on_hooked();
+    }
     info("AUTOHIDE NONE\n"
         "nanoMIPS processor support is %s", hooked ? "enabled" : "disabled");
     return true;
@@ -368,7 +558,7 @@ static const char desired_hotkey[] = "";
 plugin_t PLUGIN =
 {
     IDP_INTERFACE_VERSION,
-    PLUGIN_PROC           // this is a processor extension plugin
+    PLUGIN_FIX           // this is a processor extension plugin
     | PLUGIN_MULTI,         // this plugin can work with multiple idbs in parallel
     init,                 // initialize
     nullptr,

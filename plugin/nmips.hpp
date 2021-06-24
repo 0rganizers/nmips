@@ -1,34 +1,17 @@
 #ifndef __NMIPS_H
 #define __NMIPS_H
 
+#include "mopt.hpp"
 #include "nanomips-dis.h"
 #include <ida.hpp>
 #include <idp.hpp>
 #include <map>
 #include <set>
 #include "mgen.hpp"
-
-enum nanomips_extra_inst_t
-{
-    nMIPS_todo = CUSTOM_INSN_ITYPE,
-
-    // save / restore
-    nMIPS_save,
-    nMIPS_restore_jrc,
-
-    // branch instructions
-    nMIPS_bc,
-    nMIPS_beqic,
-    nMIPS_bgeic,
-    nMIPS_bgeiuc,
-    nMIPS_bltic,
-    nMIPS_bltiuc,
-    nMIPS_bneic,
-};
-
+#include "ins.hpp"
+#include "elf_ldr.hpp" 
 
 uint32 get_feature(nanomips_extra_inst_t inst);
-
 
 struct insn_analysis_state_t
 {
@@ -68,9 +51,19 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
     insn_analysis_state_t ana_state = {};
 
     nmips_microcode_gen_t* mgen = nullptr;
+    large_stk_opt_t mopt;
     bool did_check_hexx = false;
 
     std::map<ea_t, size_t> fake_jrc_insn;
+    // some instructions combine two ordinary mips instructions.
+    // if we encounter them, we write out the first to ida, and store the second here.
+    std::map<ea_t, insn_t> fake_secondary_insn;
+
+    elf_nanomips_t* elf_nmips = nullptr;
+
+    sel_t got_location = 0;
+
+    bool calc_arglocs_recursion = false;
 
     plugin_ctx_t();
     ~plugin_ctx_t();
@@ -122,9 +115,19 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
 
     void handle_operand(insn_t &insn, op_t &op);
 
+    bool is_switch(switch_info_t* si, const insn_t* insn);
+
+    int may_be_func(insn_t* insn, int state);
+
+    bool prev_insn(insn_t& insn, ea_t curr);
+
     int emu(insn_t &insn);
 
     void ensure_mgen_installed();
+
+    insn_t* add_fake_secondary(insn_t& curr);
+
+    void on_hooked();
 };
 
 #endif /* __NMIPS_H */

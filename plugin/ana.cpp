@@ -6,16 +6,26 @@
 #include <ida.hpp>
 #include <allins.hpp>
 #include <map>
+#include <pro.h>
 #include <string>
+#include "ins.hpp"
+#include "xref.hpp"
+#include "reg.hpp"
 
 #define MIPS_SAVE_RESTORE_TYPE o_idpspec4
 
 std::map<std::string, uint16> opcode_mapping = {
     {"move", MIPS_move},
     {"movep", MIPS_movep},
+    {"nop", MIPS_nop},
 
     /// Logical ops
     {"and", MIPS_and},
+    {"andi", MIPS_andi},
+    {"or", MIPS_or},
+    {"ori", MIPS_ori},
+    {"xor", MIPS_xor},
+    {"xori", MIPS_xori},
     
     /// Memory ops
     {"lw", MIPS_lw},
@@ -24,6 +34,7 @@ std::map<std::string, uint16> opcode_mapping = {
     {"sw", MIPS_sw},
     {"sb", MIPS_sb},
     {"lwxs", MIPS_lwxs},
+    {"swpc", MIPS_sw},
 
     /// Math ops
     {"addiu", MIPS_addiu},
@@ -32,6 +43,12 @@ std::map<std::string, uint16> opcode_mapping = {
     {"sra", MIPS_sra},
     {"sll", MIPS_sll},
     {"div", MIPS_div},
+    {"negu", MIPS_negu},
+    {"neg", MIPS_neg},
+    {"muh", nMIPS_muh},
+    {"mul", MIPS_mul},
+    {"srl", MIPS_srl},
+    {"ins", MIPS_ins},
 
     /// Branching
     {"jalrc", MIPS_jalrc},
@@ -40,6 +57,16 @@ std::map<std::string, uint16> opcode_mapping = {
     {"beqzc", MIPS_beqzc},
     {"bnezc", MIPS_bnezc},
     {"balc", MIPS_bal},
+    {"bgezc", nMIPS_bgezc},
+    {"blezc", nMIPS_blezc},
+
+    {"bltc", nMIPS_bltc},
+    {"bltuc", nMIPS_bltuc},
+    {"bgec", nMIPS_bgec},
+    {"bgeuc", nMIPS_bgeuc},
+    {"beqc", nMIPS_beqc},
+    {"bnec", nMIPS_bnec},
+
     // custom branch instructions
     {"bltic", nMIPS_bltic},
     {"bltiuc", nMIPS_bltiuc},
@@ -51,11 +78,13 @@ std::map<std::string, uint16> opcode_mapping = {
 
     /// Specials
     {"li", MIPS_li},
+    {"lui", MIPS_li}, // we already load the upper immediate correctly, no need for IDA to try the same.
     {"lapc", MIPS_la},
     {"aluipc", MIPS_la},
     {"save", MIPS_save},
     {"restore", MIPS_restore},
-    {"restore.jrc", nMIPS_restore_jrc}
+    {"restore.jrc", nMIPS_restore_jrc},
+    {"move.balc", nMIPS_move_balc},
 };
 
 bool plugin_ctx_t::fill_opcode(insn_t &insn, struct nanomips_opcode& op)
@@ -78,6 +107,7 @@ bool plugin_ctx_t::fill_opcode(insn_t &insn, struct nanomips_opcode& op)
 
 size_t remap_register(size_t reg)
 {
+    return reg;
     // t4 / t5
     if (reg == 2 || reg == 3) return reg + 10;
 
@@ -125,6 +155,19 @@ int plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nan
 
             mint_op = (const struct nanomips_mapped_int_operand *) operand;
             uval = mint_op->int_map[uval];
+            res->type = o_imm;
+            res->value = uval;
+        }
+        break;
+
+        case OP_MSB:
+        {
+            const struct nanomips_msb_operand *msb_op;
+
+            msb_op = (const struct nanomips_msb_operand *) operand;
+            uval += msb_op->bias;
+            if (msb_op->add_lsb)
+                uval -= ana_state.last_int;
             res->type = o_imm;
             res->value = uval;
         }
@@ -281,6 +324,54 @@ int plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nan
         }
         break;
 
+        case OP_HI20_INT:
+        {
+            uval = nanomips_decode_hi20_int_operand (operand, uval);
+            res->type = o_imm;
+            if (false || uval == 0)
+                res->value = uval & 0xfffff;
+            else
+                res->value = (uval & 0xfffff) << 12;
+            // LOG("HI20(0x%x)", uval);
+        }
+        break;
+
+        case OP_NON_ZERO_PCREL_S1:
+        {
+            const struct nanomips_pcrel_operand pcrel_op = {
+                {{OP_PCREL, operand->size, operand->lsb, 0, 0},
+                static_cast<unsigned int>((1 << operand->size) - 1), 0, 1, TRUE}, 0, 0, 0
+            };
+
+            res->type = o_mem;
+
+            if (true)
+                res->addr = nanomips_decode_pcrel_operand (&pcrel_op, base_pc,
+                                    uval);
+            else
+                res->addr = 0;
+        }
+        break;
+
+        case OP_IMM_WORD:
+        {
+            const struct nanomips_int_operand *int_op;
+            int_op = (const struct nanomips_int_operand *) operand;
+            res->value = ((uval >> 16) & 0xffff) | (uval << 16);
+            res->value += int_op->bias;
+            res->type = o_imm;
+        }
+        break;
+
+        case OP_UINT_WORD:
+        case OP_INT_WORD:
+        case OP_GPREL_WORD:
+        {
+            res->type = o_imm;
+            res->value = ((uval >> 16) & 0xffff) | (uval << 16);
+        }
+        break;
+
         default:
             LOG("[0x%x] Operand %d not yet implemented!", insn.ea, op.op->type);
             did_something = false;
@@ -309,25 +400,19 @@ int plugin_ctx_t::fill_operand(insn_t &insn, struct nanomips_opcode& opcode, nan
 size_t plugin_ctx_t::ana(insn_t &insn)
 {
     ensure_mgen_installed();
-    // if (ana_state.last_instr_48bits)
-    // {
-    //     // emit a single nop to cover those bytes!
-    //     insn.itype = MIPS_nop;
-    //     ana_state = {};
-    //     return 2;
-    // }
     // reset.
     ana_state = {};
 
     // check if this should be a fake jrc
-    auto it = fake_jrc_insn.find(insn.ea);
-    if (it != fake_jrc_insn.end())
+    auto it = fake_secondary_insn.find(insn.ea);
+    if (it != fake_secondary_insn.end())
     {
-        insn.itype = MIPS_jrc;
-        insn.Op1.type = o_reg;
-        insn.Op1.dtype = dt_dword;
-        insn.Op1.reg = str2reg("ra");
-        insn.size = it->second;
+        insn.itype = it->second.itype;
+        insn.Op1 = it->second.Op1;
+        insn.Op2 = it->second.Op2;
+        insn.Op3 = it->second.Op3;
+        insn.Op4 = it->second.Op4;
+        insn.size = it->second.size;
         return insn.size;
     }
 
@@ -336,13 +421,6 @@ size_t plugin_ctx_t::ana(insn_t &insn)
     size_t insn_size = nanomips_disasm_instr(insn.ea, &disasm_info, &op, operands);
     // LOG("Decoded instruction of size: %d", insn_size);
     if (insn_size <= 0) return insn_size;
-
-    // LOG("[0x%x] Decoded %s (%d)", insn.ea, op.name, insn_size);
-
-    // if (strcmp(op.name, "lwpc") == 0)
-    // {
-    //     LOG("[LWPC] operand 1: %d", operands[1].op->type);
-    // }
 
     bool remapped = fill_opcode(insn, op);
     if (!remapped) return insn_size;
@@ -366,21 +444,29 @@ size_t plugin_ctx_t::ana(insn_t &insn)
 
     post_process(insn);
 
-    // if (insn_size == 6) 
-    // {
-    //     ana_state.last_instr_48bits = true;
-    //     insn.ops[0].type = o_void;
-    //     insn.ops[1].type = o_void;
-    //     insn.ops[2].type = o_void;
-    //     insn_size = 4;
-    // }
-
-
     return insn.size;
+}
+
+insn_t* plugin_ctx_t::add_fake_secondary(insn_t &curr)
+{
+    ea_t fake_ea = curr.ea + 1;
+    insn_t* ret = &fake_secondary_insn[fake_ea];
+    ret->size = curr.size - 1;
+    curr.size = 1;
+
+    return ret;
+}
+
+void encode_phrase(op_t& op, int base, int scale)
+{
+    op.type = o_phrase;
+    op.phrase = 0;
+    op.specval = scale | (base << 5);
 }
 
 void plugin_ctx_t::post_process(insn_t &insn)
 {
+    insn_t* secondary = nullptr;
     switch (insn.itype) {
         case MIPS_lw:
         case MIPS_lb:
@@ -400,10 +486,19 @@ void plugin_ctx_t::post_process(insn_t &insn)
         }
         break;
 
+        case MIPS_lwxs: // switch to phrase version
+        case MIPS_lwx:
+            encode_phrase(insn.Op2, insn.Op3.reg, insn.Op2.reg);
+            insn.Op3.type = o_void;
+            // insn.Op3.clr_shown();
+        break;
+
         case MIPS_j:
         case MIPS_bal:
         case nMIPS_bc:
-            insn.ops[0].type = o_near;
+        case MIPS_b:
+        case MIPS_jal:
+            insn.Op1.type = o_near;
         break;
 
         // IDA only knows 32bit version, aka jalrc dst, src.
@@ -413,14 +508,20 @@ void plugin_ctx_t::post_process(insn_t &insn)
         {
             insn.Op2 = insn.Op1;
             insn.Op1.type = o_reg;
-            insn.Op1.reg = str2reg("ra");
+            insn.Op1.reg = RA;
         }
+        break;
+
+        case MIPS_li:
+            insn.Op2.type = o_imm;
         break;
 
         case MIPS_beqz:
         case MIPS_beqzc:
         case MIPS_bnez:
         case MIPS_bnezc:
+        case nMIPS_bgezc:
+        case nMIPS_blezc:
             insn.ops[1].type = o_near;
         break;
 
@@ -430,15 +531,34 @@ void plugin_ctx_t::post_process(insn_t &insn)
         case nMIPS_bltic:
         case nMIPS_bltiuc:
         case nMIPS_bneic:
+        case nMIPS_beqc:
+        case nMIPS_bgeuc:
+        case nMIPS_bgec:
+        case nMIPS_bltc:
+        case nMIPS_bltuc:
+        case nMIPS_bnec:
             insn.ops[2].type = o_near;
+        break;
+
+        case nMIPS_move_balc:
+            secondary = add_fake_secondary(insn);
+            insn.itype = MIPS_move;
+            secondary->itype = MIPS_bal;
+            secondary->Op1 = insn.Op3; // 3rd op should be address here.
+            secondary->Op1.type = o_near;
+            insn.Op3.type = o_void;
         break;
 
         // convert into a restore, followed by a jrc instruction.
         // restore also needs to have an empty first op.
         case nMIPS_restore_jrc:
+            secondary = add_fake_secondary(insn);
+            secondary->itype = MIPS_jrc;
+            secondary->Op1.type = o_reg;
+            secondary->Op1.reg = RA;
+            secondary->Op1.dtype = dt_word;
+            secondary->Op1.set_shown();
             insn.itype = MIPS_restore;
-            fake_jrc_insn[insn.ea+1] = insn.size - 1;
-            insn.size = 1;
         case MIPS_save:
         case MIPS_restore:
             insn.Op3 = insn.Op2;
@@ -450,6 +570,14 @@ void plugin_ctx_t::post_process(insn_t &insn)
             insn.Op1.clr_shown(); // Hide
         break;
     }
+}
+
+bool plugin_ctx_t::prev_insn(insn_t &insn, ea_t curr)
+{
+    ea_t prev_ea = decode_prev_insn(&insn, curr);
+    if (prev_ea == BADADDR) return false;
+    insn.ea = prev_ea;
+    return true;
 }
 
 void insn_analysis_state_t::record_register(unsigned int reg)

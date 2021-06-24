@@ -20,6 +20,14 @@ public:
     ///   MERR_INSN    - not generated - the caller should try the standard way
     ///   else         - error
     merror_t apply(codegen_t &cdg) override;
+
+private:
+    // temps, to be used by simple emit version
+    qvector<mreg_t> temps;
+
+    mreg_t get_temp(int idx);
+    mop_t get_mtemp(int idx, int width);
+
 };
 
 #endif /* __MGEN_H */

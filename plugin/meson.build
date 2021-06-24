@@ -1,6 +1,6 @@
 project('nmips', ['cpp', 'c'],
   version : '0.1',
-  default_options : ['warning_level=3',
+  default_options : ['warning_level=1',
                      'cpp_std=c++14'])
 
 ida_sdk = get_option('idasdk')
@@ -12,9 +12,12 @@ sdk_inc = ida_sdk / 'include'
 sdk_bin = ida_sdk / 'bin'
 sdk_lib = ida_sdk / 'lib'
 plugins = ida_usr / 'plugins'
+sdk_ldr = ida_sdk / 'ldr'
+
+ida_bin = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS'
 
 # TODO: Hardcoded path
-hexrays_sdk = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS/plugins/hexrays_sdk/'
+hexrays_sdk = ida_bin / 'plugins' / 'hexrays_sdk'
 hexrays_include = hexrays_sdk / 'include'
 
 summary({
@@ -28,8 +31,19 @@ summary({
 }, section: 'IDA Paths')
 
 src_files = files(
+  'loguru.hpp',
+  'loguru.cpp',
+  'proc_def_shim.cpp',
+  'reg.hpp',
+  'reg.cpp',
+  'elf_ldr.hpp',
+  'elf_ldr.cpp',
+  'ins.hpp',
+  'ins.cpp',
   'ana.cpp',
   'emu.cpp',
+  'mopt.hpp',
+  'mopt.cpp',
   'mgen.hpp',
   'mgen.cpp',
   'nmips.hpp',
@@ -39,13 +53,20 @@ src_files = files(
   'nanomips-dis.c'
 )
 
-sdk_inc_dir = include_directories(sdk_inc, hexrays_include)
+sdk_inc_dir = include_directories(sdk_inc, hexrays_include, sdk_ldr, is_system: true)
 
 # TODO make this generic
 actual_lib_path = sdk_lib / 'x64_mac_clang_32'
 ida_dep = declare_dependency(
   link_args: ['-L'+actual_lib_path, '-lida'],
-  include_directories: sdk_inc_dir
+  include_directories: sdk_inc_dir,
+  is_system: true
+)
+
+elf_lib_path = ida_bin / 'loaders'
+
+elf_dep = declare_dependency(
+  link_args: ['-L'+elf_lib_path, '-lelf']
 )
 
 # TODO make this generic / build opcodes with meson (at least partially)
@@ -66,8 +87,18 @@ summary({
 
 opcodes = declare_dependency(
   link_args: ['-L'+binutils_lib, '-lbfd', '-lopcodes'],
-  include_directories: binutils_include
+  include_directories: binutils_include,
+  is_system: true
 )
+
+project_args = [
+  '-Wno-nullability-completeness',
+  '-Wno-gnu-zero-variadic-macro-arguments',
+  '-Wno-unused-variable'
+]
+
+add_project_arguments(project_args, language: 'cpp')
+add_project_arguments(project_args, language: 'c')
 
 # TODO make this work for non macOS
 extra_defines = ['__MAC__']
