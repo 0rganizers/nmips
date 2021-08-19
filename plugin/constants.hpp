@@ -16,4 +16,6 @@
 
 #define CCF_COND 0x200000
 
+#define GP_SREG (0x44)
+
 #endif /* __CONSTANTS_H */

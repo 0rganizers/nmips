@@ -4,16 +4,122 @@
 #include <pro.h>
 #include <elf/elfbase.h>
 #include <elf/elf.h>
+#include <idp.hpp>
 
 struct plugin_ctx_t;
 
+/**
+ * @brief Symbol encountered by the elf_nanomips_t loader
+ * We save this, so that when rebasing the GOT / extern segment, we can correctly update the locations.
+ */
+struct got_symbol_t
+{
+    /**
+     * @brief Offset from the base of the GOT section, where this symbol is.
+     * This might be invalid after a rebasing of the got segment.
+     */
+    ea_t got_offset = BADADDR;
+
+    /**
+     * @brief Actual address of the symbol in the got.
+     * We use both, got_symbol_t::got_offset and this, since we might not yet know the start of the got when we encounter a symbol.
+     */
+    ea_t got_addr;
+
+    /**
+     * @brief Offset from the base of the extern section, where this symbol is.
+     * This might be invalid after a rebasing of the extern segment.
+     */
+    ea_t extern_offset = BADADDR;
+
+    /**
+     * @brief Actual address of the symbol in the extern section.
+     * We use both, got_symbol_t::extern_offset and this, since we might not yet know the start of the extern section when we encounter a symbol.
+     */
+    ea_t extern_addr;
+
+    /**
+     * @brief Name of the symbol.
+     * 
+     */
+    const char* name;
+};
+
+/**
+ * @brief Keeps track of relocations, so that when we rebase the program, we can update them correctly.
+ * This is a separate class to elf_nanomips_t, because we need to have this even without the ELF loader.
+ * This happens if we open an existing IDB and want to continue working on something.
+ * It saves the relocation information inside th IDB, so we can rebase even loading from an IDB!
+ */
+struct elf_nanomips_relocations_t : public event_listener_t
+{
+public:
+    elf_nanomips_relocations_t();
+
+    ea_t got_base = BADADDR;
+    ea_t extern_base = BADADDR;
+
+    qvector<got_symbol_t> relocated_symbols;
+
+    virtual ssize_t idaapi on_event(ssize_t code, va_list va) override;
+
+    void enable_hooks(bool enable);
+
+    void segments_updated();
+
+    /**
+     * @brief Change the internally managed got base address.
+     * If not previously set, it will calculate the correct GOT offsets for got symbols.
+     * It also updates the GP segmentation register, so that relocations are correctly detected.
+     * @param new_base 
+     */
+    void update_got_base(ea_t new_base);
+
+    /**
+     * @brief Change the internally managed extern base address.
+     * If not previously set, it will calculate the correct extern offsets for got symbols.
+     * DOES not automatically patch the GOT again, you have to do that yourself by calling elf_nanomips_t::patch_got().
+     * @param new_base 
+     */
+    void update_extern_base(ea_t new_base);
+
+    /**
+     * @brief Patches up the symbols in the got, so that they are resolved to the extern symbols.
+     * Can be called whenever really.
+     */
+    void patch_got();
+
+    /**
+     * @brief Patches a single symbol inside the GOT.
+     * 
+     * @param symbol 
+     */
+    void patch_got_symbol(got_symbol_t& symbol);
+
+    void set_offsets(got_symbol_t& got_sym);
+
+    void save_to_idb();
+    void load_from_idb();
+
+private:
+    /**
+     * @brief Storage inside the IDB.
+     * 
+     */
+    netnode storage;
+    netnode symbol_storage;
+};
+
+/**
+ * @brief  ELF loader responsible for handling nanoMIPS relocations.
+ * @note   It uses elf_mips_t* as a proxy for most functions.
+ */
 struct elf_nanomips_t : public proc_def_t
 {
 public:
-    elf_nanomips_t(elf_mips_t* base) : proc_def_t(base->ldr, base->reader), base(base) {};
+    elf_nanomips_t(elf_mips_t* base, elf_nanomips_relocations_t* relocations) : proc_def_t(base->ldr, base->reader), base(base), relocations(relocations) {};
     elf_mips_t* base;
-    sel_t got_location = 0;
-    plugin_ctx_t* plugin = nullptr;
+    elf_nanomips_relocations_t* relocations;
 
     // Overridden from elf_mips_t
     virtual const char *proc_handle_reloc(

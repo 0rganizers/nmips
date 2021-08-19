@@ -249,7 +249,7 @@ int plugin_ctx_t::emu(insn_t &insn)
     //     LOG("[0x%x] emu bal, Op1.type = %d", insn.ea, insn.Op1.type);
     // }
 
-    uint32 feature = get_feature((nanomips_extra_inst_t)insn.itype);
+    uint32 feature = get_feature(insn);
     bool flow = true;
     // unconditional jump, no flow!
     if ((feature & CF_JUMP) == CF_JUMP && (feature & CCF_COND) == 0)

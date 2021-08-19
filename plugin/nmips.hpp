@@ -11,7 +11,7 @@
 #include "ins.hpp"
 #include "elf_ldr.hpp" 
 
-uint32 get_feature(nanomips_extra_inst_t inst);
+uint32 get_feature(insn_t& inst);
 
 struct insn_analysis_state_t
 {
@@ -25,6 +25,20 @@ struct insn_analysis_state_t
 
     void record_register(unsigned int reg);
     void record_int(bfd_vma val);
+};
+
+struct plugin_ctx_t;
+struct config_gdb_plugin_t : public action_handler_t
+{
+    plugin_ctx_t &plg;
+    config_gdb_plugin_t(plugin_ctx_t &p) : plg(p) {}
+    virtual int idaapi activate(action_activation_ctx_t *) override;
+    virtual action_state_t idaapi update(action_update_ctx_t *) override
+    {
+        return AST_ENABLE_ALWAYS;
+    }
+
+    const char* set_dbg_option(debugger_t *dbg, const char *keyword, int type, const void *value);
 };
 
 //--------------------------------------------------------------------------
@@ -60,10 +74,25 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
     std::map<ea_t, insn_t> fake_secondary_insn;
 
     elf_nanomips_t* elf_nmips = nullptr;
+    elf_nanomips_relocations_t* relocations = nullptr;
 
     sel_t got_location = 0;
 
     bool calc_arglocs_recursion = false;
+
+    /**
+     * Actions.
+     * 
+     */
+    config_gdb_plugin_t config_gdb_plugin_ah = config_gdb_plugin_t(*this);
+  const action_desc_t config_gdb_plugin_desc = ACTION_DESC_LITERAL_PLUGMOD(
+        "nmips:ConfigGDB",
+        "Configure GDB",
+        &config_gdb_plugin_ah,
+        this,
+        "Ctrl+Shift+Meta+G",
+        NULL,
+        -1);
 
     plugin_ctx_t();
     ~plugin_ctx_t();
@@ -127,7 +156,25 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
 
     insn_t* add_fake_secondary(insn_t& curr);
 
-    void on_hooked();
+   /**
+    * @brief  Enable / disable the plugin from working.
+    * @note   The plugin always hooks the IDP events, to get a callback when ELF files are loaded.
+    *         However, it is only automatically active in nanoMIPS ELF files.
+    *         This function manually enables / disables the plugin for working in other files.
+    *         It is used by the automatic ELF detection as well though.
+    * @param  enable: 
+    * @retval None
+    */
+    void enable_plugin(bool enable);
+
+   /**
+    * @brief  Loads the plugin from the IDB.
+    * @note   This loads the plugin information from an IDB.
+    *         It is called at multiple points, but sometimes the idb is not loaded yet.
+    * @retval None
+    */
+    void load_from_idb();
+
 };
 
 #endif /* __NMIPS_H */
