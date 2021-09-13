@@ -103,6 +103,11 @@ uint32 get_feature(insn_t& insn)
         return it->second.features;
     }
 
+    if (insn.itype >= CUSTOM_INSN_ITYPE) {
+        // Otherwise we would segfault!
+        return 0;
+    }
+
     return insn.get_canon_feature(PH);
 }
 
@@ -629,11 +634,11 @@ int config_gdb_plugin_t::activate(action_activation_ctx_t *)
 void plugin_ctx_t::ensure_mgen_installed()
 {
     if (this->did_check_hexx) return;
-    LOG("Installing mgen filter!");
+    TRACE("Installing mgen filter!");
 
     if ( !init_hexrays_plugin() )
     {
-        ERR("Hexrays not detected, not installing microcode filter!");
+        TRACE("Hexrays not detected, not installing microcode filter!");
         return;
     }
 

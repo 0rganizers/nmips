@@ -50,46 +50,76 @@ src_files = files(
   'nmips.cpp',
   'log.hpp',
   'nanomips-dis.h',
-  'nanomips-dis.c'
+  'nanomips-dis.c',
+
+  #fuck you binutils
+  'binutils/nanomips-opc.c',
+  'binutils/pls.c'
 )
 
 sdk_inc_dir = include_directories(sdk_inc, hexrays_include, sdk_ldr, is_system: true)
 
-# TODO make this generic
-actual_lib_path = sdk_lib / 'x64_mac_clang_32'
+ida_cpu = 'x64'
+ida_os = 'linux'
+ida_compiler = 'gcc'
+ida_bits = '32'
+extra_defines = ['__LINUX__']
+
+if host_machine.cpu_family() == 'arm'
+  ida_cpu = 'arm64'
+endif
+
+if host_machine.system() == 'darwin'
+  ida_os = 'mac'
+  ida_compiler = 'clang'
+  extra_defines = ['__MAC__']
+elif host_machine.system() == 'windows'
+  ida_os = 'windows'
+  ida_compiler = 'vc'
+  extra_defines = ['__NT__']
+endif
+
+ida_str = '@0@_@1@_@2@_@3@'.format(ida_cpu, ida_os, ida_compiler, ida_bits)
+actual_lib_path = sdk_lib / ida_str
 ida_dep = declare_dependency(
   link_args: ['-L'+actual_lib_path, '-lida'],
   include_directories: sdk_inc_dir,
   is_system: true
 )
 
-elf_lib_path = ida_bin / 'loaders'
+summary({
+  'target': ida_str,
+  # 'include': sdk_inc_dir,
+  'lib': actual_lib_path,
+}, section: 'ida')
 
-elf_dep = declare_dependency(
-  link_args: ['-L'+elf_lib_path, '-lelf']
-)
+# elf_lib_path = ida_bin / 'loaders'
+
+# elf_dep = declare_dependency(
+#   link_args: ['-L'+elf_lib_path, '-lelf']
+# )
 
 # TODO make this generic / build opcodes with meson (at least partially)
-host = 'x86_64-apple-darwin19.6.0'
-target = 'nanomips-gnu-elf'
-src_dir = meson.current_source_dir()
-binutils_prefix = '..' / 'libs' / host / target
-binutils_lib = src_dir / binutils_prefix / 'lib'
-binutils_include = binutils_prefix / 'include'
+# host = 'x86_64-apple-darwin19.6.0'
+# target = 'nanomips-gnu-elf'
+# src_dir = meson.current_source_dir()
+# binutils_prefix = '..' / 'libs' / host / target
+# binutils_lib = src_dir / binutils_prefix / 'lib'
+# binutils_include = binutils_prefix / 'include'
 
-summary({
-  'host': host,
-  'target': target,
-  'prefix': binutils_prefix,
-  'include': binutils_include,
-  'lib': binutils_lib
-}, section: 'binutils')
+# summary({
+#   'host': host,
+#   'target': target,
+#   'prefix': binutils_prefix,
+#   'include': binutils_include,
+#   'lib': binutils_lib
+# }, section: 'binutils')
 
-opcodes = declare_dependency(
-  link_args: ['-L'+binutils_lib, '-lbfd', '-lopcodes'],
-  include_directories: binutils_include,
-  is_system: true
-)
+# opcodes = declare_dependency(
+#   link_args: ['-L'+binutils_lib, '-lbfd', '-lopcodes'],
+#   include_directories: binutils_include,
+#   is_system: true
+# )
 
 project_args = [
   '-Wno-nullability-completeness',
@@ -101,5 +131,15 @@ add_project_arguments(project_args, language: 'cpp')
 add_project_arguments(project_args, language: 'c')
 
 # TODO make this work for non macOS
-extra_defines = ['__MAC__']
-shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep, opcodes])
+inc_dir = include_directories('../binutils/include')
+shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep], include_directories: inc_dir)
+
+if host_machine.system() == 'darwin'
+  actual_lib_path_arm = sdk_lib / 'arm64_mac_clang_32'
+  ida_dep_arm = declare_dependency(
+    link_args: ['-L'+actual_lib_path_arm, '-lida'],
+    include_directories: sdk_inc_dir,
+    is_system: true
+  )
+  shared_library('arm_nmips', src_files, dependencies: [ida_dep_arm], include_directories: inc_dir, cpp_args: ['-target', 'arm64-apple-macos11'], c_args: ['-target', 'arm64-apple-macos11'])
+endif

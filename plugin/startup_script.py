@@ -23,4 +23,4 @@ def main():
 print("hello there!")
 idc.auto_wait()
 print("analysis finished")
-main()
+# main()

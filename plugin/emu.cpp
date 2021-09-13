@@ -236,6 +236,7 @@ void plugin_ctx_t::handle_operand(insn_t &insn, op_t &op)
 
 int plugin_ctx_t::emu(insn_t &insn)
 {
+    // LOG("emu 0x%x", insn.ea);
     // Not custom instruction!
     // we need to handle li ourselves, since IDA really seems to want to create crefs based on the li value :/
     // this makes decompiled output look really weird.

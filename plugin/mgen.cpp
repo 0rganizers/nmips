@@ -47,7 +47,7 @@ mcode_t code_for_jcnd(nanomips_extra_inst_t jcnd_inst)
 
 merror_t nmips_microcode_gen_t::apply(codegen_t &cdg)
 {
-    LOG("[0x%x] apply_micro", cdg.insn.ea);
+    TRACE("[0x%x] apply_micro", cdg.insn.ea);
    /**
     * @note   cdg.emit (the advanced version using pointers) copies the mop_t* arguments, so we can safely pass pointers to local variables.
     */

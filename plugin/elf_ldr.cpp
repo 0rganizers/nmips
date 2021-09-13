@@ -116,9 +116,9 @@ void elf_nanomips_relocations_t::patch_got_symbol(got_symbol_t& symbol)
         extern_address = extern_base + symbol.extern_offset;
     }
 
-    // LOG("patching symbol %s 0x%x = 0x%x", symbol.name, got_address, extern_address);
+    LOG("patching symbol %s 0x%x = 0x%x", symbol.name, got_address, extern_address);
     // get_flags(0);
-    // patch_dword(got_address, extern_address);
+    patch_dword(got_address, extern_address);
 }
 
 void elf_nanomips_relocations_t::set_offsets(got_symbol_t& got_sym)

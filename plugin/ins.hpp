@@ -37,6 +37,59 @@ enum nanomips_extra_inst_t : uint16
 
     // Math ops
     nMIPS_muh,
+
+    // TODO: Actually implement these!
+    nMIPS_align,
+
+    nMIPS_bbeqzc,
+    nMIPS_bbneqzc,
+
+    nMIPS_bitrevb,
+    nMIPS_bitrevw,
+    nMIPS_bitswap,
+    nMIPS_byterevh,
+    nMIPS_byterevw,
+
+    nMIPS_crc32b,
+    nMIPS_crc32cb,
+    nMIPS_crc32ch,
+    nMIPS_crc32cw,
+    nMIPS_crc32h,
+    nMIPS_crc32w,
+
+    nMIPS_extw,
+    nMIPS_ginvi,
+    nMIPS_ginvt,
+
+    nMIPS_lhuxs,
+    nMIPS_lhxs,
+    nMIPS_llwp,
+    nMIPS_llwpe,
+
+    nMIPS_mfhc0,
+    nMIPS_mthc0,
+
+    nMIPS_mod,
+    nMIPS_modu,
+    nMIPS_muhu,
+    nMIPS_mulu,
+
+    nMIPS_rotx,
+
+    nMIPS_sbx,
+    nMIPS_scwp,
+    nMIPS_scwpe,
+    nMIPS_shx,
+    nMIPS_shxs,
+    nMIPS_swx,
+    nMIPS_swxs,
+
+    nMIPS_sigrie,
+
+    nMIPS_sov,
+
+    nMIPS_tlbinv,
+    nMIPS_tlbinvf,
 };
 
 struct nanomips_insn_t
@@ -59,6 +112,8 @@ extern std::map<nanomips_extra_inst_t, nanomips_insn_t> nanomips_insn;
     case nMIPS_bgec: \
     case nMIPS_bgeuc: \
     case nMIPS_beqc: \
-    case nMIPS_bnec:
+    case nMIPS_bnec: \
+    case nMIPS_bbeqzc: \
+    case nMIPS_bbneqzc:
 
 #endif /* __INS_H */

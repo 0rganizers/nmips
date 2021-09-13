@@ -26,4 +26,11 @@ std::map<nanomips_extra_inst_t, nanomips_insn_t> nanomips_insn = {
     EXTRA_INSN(blezc, CF_JUMP | CCF_COND),
 
     EXTRA_INSN(muh, 0),
+
+    EXTRA_INSN(align, 0),
+
+    EXTRA_INSN(bbeqzc, CF_JUMP | CCF_COND),
+    EXTRA_INSN(bbneqzc, CF_JUMP | CCF_COND),
+
+    
 };
