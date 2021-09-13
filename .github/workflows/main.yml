@@ -53,6 +53,12 @@ jobs:
       - name: Add msbuild to PATH
         if: ${{ matrix.os == 'windows-latest' }}
         uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: Really do msbuild this time pls
+        if: ${{ matrix.os == 'windows-latest' }}
+        uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: x64
         
       - name: Build
         env:
