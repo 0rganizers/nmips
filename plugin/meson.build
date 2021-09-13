@@ -14,11 +14,11 @@ sdk_lib = ida_sdk / 'lib'
 plugins = ida_usr / 'plugins'
 sdk_ldr = ida_sdk / 'ldr'
 
-ida_bin = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS'
+# ida_bin = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS'
 
 # TODO: Hardcoded path
-hexrays_sdk = ida_bin / 'plugins' / 'hexrays_sdk'
-hexrays_include = hexrays_sdk / 'include'
+# hexrays_sdk = ida_bin / 'plugins' / 'hexrays_sdk'
+# hexrays_include = hexrays_sdk / 'include'
 
 summary({
   'sdk': ida_sdk,
@@ -27,7 +27,7 @@ summary({
   'lib': sdk_lib,
   'user': ida_usr,
   'plugins': plugins,
-  'hexrays': hexrays_sdk
+  # 'hexrays': hexrays_sdk
 }, section: 'IDA Paths')
 
 src_files = files(
@@ -57,7 +57,7 @@ src_files = files(
   'binutils/pls.c'
 )
 
-sdk_inc_dir = include_directories(sdk_inc, hexrays_include, sdk_ldr, is_system: true)
+sdk_inc_dir = include_directories(sdk_inc, sdk_ldr, is_system: true)
 
 ida_cpu = 'x64'
 ida_os = 'linux'
