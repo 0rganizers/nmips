@@ -130,9 +130,15 @@ project_args = [
 add_project_arguments(project_args, language: 'cpp')
 add_project_arguments(project_args, language: 'c')
 
-# TODO make this work for non macOS
+thread_dep = dependency('threads')
+if host_machine.system() == 'windows'
+    dl_dep = dependency('', required: false)
+else
+    dl_dep = dependency('dl', required: false)
+endif
+
 inc_dir = include_directories('../binutils/include')
-shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep], include_directories: inc_dir)
+shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep, thread_dep, dl_dep], include_directories: inc_dir)
 
 if host_machine.system() == 'darwin'
   actual_lib_path_arm = sdk_lib / 'arm64_mac_clang_32'
@@ -141,5 +147,5 @@ if host_machine.system() == 'darwin'
     include_directories: sdk_inc_dir,
     is_system: true
   )
-  shared_library('arm_nmips', src_files, dependencies: [ida_dep_arm], include_directories: inc_dir, cpp_args: ['-target', 'arm64-apple-macos11'], c_args: ['-target', 'arm64-apple-macos11'])
+  shared_library('arm_nmips', src_files, dependencies: [ida_dep_arm, thread_dep, dl_dep], include_directories: inc_dir, cpp_args: ['-target', 'arm64-apple-macos11'], c_args: ['-target', 'arm64-apple-macos11'])
 endif
