@@ -63,7 +63,7 @@ ida_cpu = 'x64'
 ida_os = 'linux'
 ida_compiler = 'gcc'
 ida_bits = '32'
-extra_defines = ['__LINUX__']
+ida_define = '__LINUX__'
 
 if host_machine.cpu_family() == 'arm'
   ida_cpu = 'arm64'
@@ -72,11 +72,11 @@ endif
 if host_machine.system() == 'darwin'
   ida_os = 'mac'
   ida_compiler = 'clang'
-  extra_defines = ['__MAC__']
+  ida_define = '__MAC__'
 elif host_machine.system() == 'windows'
   ida_os = 'windows'
   ida_compiler = 'vc'
-  extra_defines = ['__NT__']
+  ida_define = '__NT__'
 endif
 
 ida_str = '@0@_@1@_@2@_@3@'.format(ida_cpu, ida_os, ida_compiler, ida_bits)
@@ -124,7 +124,8 @@ summary({
 project_args = [
   '-Wno-nullability-completeness',
   '-Wno-gnu-zero-variadic-macro-arguments',
-  '-Wno-unused-variable'
+  '-Wno-unused-variable',
+  '-D@0@=1'.format(ida_define)
 ]
 
 add_project_arguments(project_args, language: 'cpp')
