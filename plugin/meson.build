@@ -134,7 +134,7 @@ thread_dep = dependency('threads')
 if host_machine.system() == 'windows'
     dl_dep = dependency('', required: false)
 else
-    dl_dep = dependency('dl', required: false)
+    dl_dep = meson.get_compiler('c').find_library('dl', required: true)
 endif
 
 inc_dir = include_directories('../binutils/include')
