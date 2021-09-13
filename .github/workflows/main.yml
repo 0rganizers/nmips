@@ -27,10 +27,16 @@ jobs:
         include:
           - os: ubuntu-latest
             pkg: sudo apt-get install -y openssl ninja-build && sudo pip3 install meson
-          - os: macos-latest
+            artifact: libnmips.so
+            name: linux
+          - os: macos-11
             pkg: brew install openssl meson
+            artifact: lib*nmips.dylib
+            name: macos
           - os: windows-latest
             pkg: choco install openssl meson
+            artifact: '*nmips.dll'
+            name: windows
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -49,3 +55,8 @@ jobs:
           IDA_PASS: ${{ secrets.IDA_PASS }}
         run: ./build.sh
         shell: bash
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: nmips_${{ matrix.name }}
+          path: build/builddir/${{ matrix.artifact }}
