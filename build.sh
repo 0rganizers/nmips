@@ -6,7 +6,7 @@ mkdir $BUILD_DIR
 
 echo "[*] Decrypting idasdk..."
 # echo $IDA_PASS | age -d -o $BUILD_DIR/idasdk.zip idasdk76.zip
-openssl aes-256-cbc -d -in idasdk.zip -out $BUILD_DIR/idasdk.zip -pass env:IDA_PASS
+openssl aes-256-cbc -d -md sha256 -in idasdk.zip -out $BUILD_DIR/idasdk.zip -pass env:IDA_PASS
 echo "[*] Setting up idasdk..."
 cd $BUILD_DIR
 unzip idasdk
