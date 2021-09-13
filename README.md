@@ -1,6 +1,6 @@
 # nmips
 
-IDA plugin for nanoMIPS.
+IDA plugin for nanoMIPS. Tested on IDA 7.6.
 
 To see how well it works, with the mipscoder binary from 0CTF, see below :)
 You can disassemble, decompile and even debug it!
@@ -29,10 +29,32 @@ The plugin registers a bunch of plugin hooks, so that it can then give IDA the i
 In case the instruction is translated to MIPS, it will be decompiled automatically without any issues.
 Otherwise, decompiler hooks emit the correct hexrays microcode, so that these instructions can also be decompiled correctly.
 
+## Installation
+
+| OS | Download |
+|----|----------|
+|Linux| [Download](https://nightly.link/0rganizers/nmips/workflows/main/main/nmips_linux.zip)|
+|macOS (ARM might be broken) | [Download](https://nightly.link/0rganizers/nmips/workflows/main/main/nmips_macos.zip)|
+|Windows| [Download](https://nightly.link/0rganizers/nmips/workflows/main/main/nmips_windows.zip)|
+
+Download the corresponding version for your OS and put the plugin inside `~/.idapro/plugins`.
+Done! If you open a nanoMIPS ELF file, you should be able to just mash through some of the dialogs and get it working.
+If you want to e.g. apply this to a flat binary file, you can instead just load it as a little endian MIPS file.
+Then, select this plugin from `Edit > Plugins > nmips`.
+This will force it on, and it should start to disassemble stuff!
+
+## Building
+
+Make sure you have meson installed.
+Then inside the `plugin` directory, just run:
+
+```bash
+meson setup builddir -Didasdk=$IDA_SDK
+meson compile -C builddir
+```
+
 ## TODOs
 
 - implement assembler
 - fix debugging to be nicer
-- write nice build scripts for binutils
 - rework plugin to be nicer
-- automatic build?
