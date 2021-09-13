@@ -26,15 +26,15 @@ jobs:
         os: [ubuntu-latest, macos-11, windows-latest]
         include:
           - os: ubuntu-latest
-            pkg: sudo apt-get install -y openssl ninja-build && sudo pip3 install meson
+            pkg: sudo apt-get install -y openssl
             artifact: libnmips.so
             name: linux
           - os: macos-11
-            pkg: brew install openssl meson
+            pkg: brew install openssl
             artifact: lib*nmips.dylib
             name: macos
           - os: windows-latest
-            pkg: choco install openssl meson
+            pkg: choco install openssl
             artifact: '*nmips.dll'
             name: windows
 
@@ -45,6 +45,11 @@ jobs:
         
       - name: Install Packages
         run: ${{ matrix.pkg }}
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - run: pip install meson ninja
       
       - name: Add msbuild to PATH
         if: ${{ matrix.os == 'windows-latest' }}
