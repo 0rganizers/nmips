@@ -117,7 +117,7 @@ bool config_patcher_t::run(bool remove)
     qfclose(config);
 
     current_patcher = this;
-    ret = read_config(input.c_str(), false, empty_options, qnumber(empty_options), config_patcher_handler);
+    ret = read_config(input.c_str(), false, empty_options, 0, config_patcher_handler);
     // For some reason, we still return false here, not sure why?
     // if (ret != 0) {
     //     WARN("Failed to read config file: %s", qerrstr(ret));
