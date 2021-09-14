@@ -61,7 +61,7 @@ jobs:
 
       - name: Really do msbuild this time pls
         if: ${{ matrix.os == 'windows-latest' }}
-        run: dev_cmd.ps1
+        run: ./dev_cmd.ps1
         
       - name: Build
         env:
