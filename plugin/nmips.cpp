@@ -712,9 +712,8 @@ size_t page_size()
 bool protect_data(void* addr, size_t size, bool write_enable)
 {
 #if defined(_MSC_VER)
-    PAGE_READWRITE
     DWORD old_prot = 0;
-    DWORD flags = PAGE_READ;
+    DWORD flags = PAGE_READONLY;
     if (write_enable) flags = PAGE_READWRITE;
     bool ret = VirtualProtect(addr, size, flags, &old_prot);
     return ret;
