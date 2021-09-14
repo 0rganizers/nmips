@@ -1,7 +1,7 @@
 project('nmips', ['cpp', 'c'],
   version : '0.1',
   default_options : ['warning_level=1',
-                     'cpp_std=c++latest'])
+                     'cpp_std=c++20'])
 
 ida_sdk = get_option('idasdk')
 

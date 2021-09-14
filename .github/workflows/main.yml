@@ -50,11 +50,16 @@ jobs:
           python-version: '3.x'
       - run: pip install meson ninja
 
-      - name: Really do msbuild this time pls
+      - uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.os == 'windows-latest' }}
-        uses: bus1/cabuild/action/msdevshell@v1
         with:
-          architecture: x64
+          toolset: "14.XX"
+
+      # - name: Really do msbuild this time pls
+      #   if: ${{ matrix.os == 'windows-latest' }}
+      #   uses: bus1/cabuild/action/msdevshell@v1
+      #   with:
+      #     architecture: x64
         
       - name: Build
         env:
