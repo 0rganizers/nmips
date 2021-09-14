@@ -35,6 +35,7 @@ echo "[*] IDA SDK at $IDA_SDK"
 # fi
 
 echo "[*] Setting up and building plugin"
+echo $PATH
 cd $CUR/plugin
 meson setup $BUILD_DIR/builddir -Didasdk=$IDA_SDK
 echo "[*] Building plugin..."
