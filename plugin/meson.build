@@ -134,6 +134,11 @@ if host_machine.system() == 'windows'
   override_options += ['cpp_std=c++latest'] # because apparently github actions does not support c++20??
 endif
 
+summary({
+  'project_args': project_args,
+  'override_options': override_options
+}, section: 'options')
+
 add_project_arguments(project_args, language: 'cpp')
 add_project_arguments(project_args, language: 'c')
 
@@ -154,5 +159,5 @@ if host_machine.system() == 'darwin'
     include_directories: sdk_inc_dir,
     is_system: true
   )
-  shared_library('arm_nmips', src_files, dependencies: [ida_dep_arm, thread_dep, dl_dep], include_directories: inc_dir, cpp_args: ['-target', 'arm64-apple-macos11'], c_args: ['-target', 'arm64-apple-macos11'])
+  shared_library('arm_nmips', src_files, dependencies: [ida_dep_arm, thread_dep, dl_dep], include_directories: inc_dir, link_args: ['-target', 'arm64-apple-macos11'], cpp_args: ['-target', 'arm64-apple-macos11'], c_args: ['-target', 'arm64-apple-macos11'])
 endif
