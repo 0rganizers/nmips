@@ -128,6 +128,10 @@ project_args = [
   '-D@0@=1'.format(ida_define)
 ]
 
+if host_machine.system() == 'windows'
+  project_args += ['-std=c++latest'] # because apparently github actions does not support c++20??
+endif
+
 add_project_arguments(project_args, language: 'cpp')
 add_project_arguments(project_args, language: 'c')
 
