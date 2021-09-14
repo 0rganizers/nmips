@@ -77,7 +77,7 @@ if host_machine.system() == 'darwin'
   ida_compiler = 'clang'
   ida_define = '__MAC__'
 elif host_machine.system() == 'windows'
-  ida_os = 'windows'
+  ida_os = 'win'
   ida_compiler = 'vc'
   ida_define = '__NT__'
 endif
