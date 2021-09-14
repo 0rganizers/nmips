@@ -128,8 +128,10 @@ project_args = [
   '-D@0@=1'.format(ida_define)
 ]
 
+override_options = []
+
 if host_machine.system() == 'windows'
-  project_args += ['-std=c++latest'] # because apparently github actions does not support c++20??
+  override_options += ['cpp_std=c++latest'] # because apparently github actions does not support c++20??
 endif
 
 add_project_arguments(project_args, language: 'cpp')
@@ -143,7 +145,7 @@ else
 endif
 
 inc_dir = include_directories('../binutils/include')
-shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep, thread_dep, dl_dep], include_directories: inc_dir)
+shared_library('nmips', src_files, install: true, install_dir: plugins, dependencies: [ida_dep, thread_dep, dl_dep], include_directories: inc_dir, override_options: override_options)
 
 if host_machine.system() == 'darwin'
   actual_lib_path_arm = sdk_lib / 'arm64_mac_clang_32'
