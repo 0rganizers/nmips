@@ -35,8 +35,10 @@ echo "[*] IDA SDK at $IDA_SDK"
 # fi
 
 echo "[*] Setting up and building plugin"
-echo $PATH
+GOOD_PATH=$(echo "$PATH" | sed -e 's/:\/mingw64\/bin\(:\|$\)//')
+GOOD_PATH=$(echo "$GOOD_PATH" | sed -e 's/:\/usr\/bin\(:\|$\)//')
+echo "[*] Fixed Path: $GOOD_PATH"
 cd $CUR/plugin
-meson setup $BUILD_DIR/builddir -Didasdk=$IDA_SDK
+PATH=$GOOD_PATH meson setup $BUILD_DIR/builddir -Didasdk=$IDA_SDK
 echo "[*] Building plugin..."
-meson compile -C $BUILD_DIR/builddir
+PATH=$GOOD_PATH meson compile -C $BUILD_DIR/builddir
