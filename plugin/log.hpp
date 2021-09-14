@@ -5,7 +5,11 @@
 #include <kernwin.hpp>
 #include "loguru.hpp"
 
+#if defined(_MSC_VER)
+#define VA_ARGS(...) , ## __VA_ARGS__
+#else
 #define VA_ARGS(...) __VA_OPT__(,) ##__VA_ARGS__
+#endif
 #ifdef DEBUG
 #define TRACE(message,...) msg("")
 #else
