@@ -8,9 +8,11 @@
 #endif
 #define __CONFIG_H__ 1
 
+#if !defined(_MSC_VER)
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #define ENABLE_NLS 1
+#endif
 
 /* Define to 1 if you have the declaration of `basename', and to 0 if you
    don't. */
@@ -20,8 +22,10 @@
    */
 #define HAVE_DECL_STPCPY 1
 
+#if !defined(_MSC_VER)
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
+#endif
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
