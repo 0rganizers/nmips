@@ -14,7 +14,7 @@
 // #define ENABLE_NLS 0
 // #endif
 
-#define ENABLE_NLS 0
+#undef ENABLE_NLS
 
 /* Define to 1 if you have the declaration of `basename', and to 0 if you
    don't. */

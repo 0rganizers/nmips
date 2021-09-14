@@ -414,6 +414,19 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
 
         }
         break;
+        case processor_t::ev_assemble:
+        {
+            // Does not work :(
+            // output buffer
+            uchar* bin = va_arg(va, uchar*);
+            ea_t ea = va_arg(va, ea_t);
+            ea_t cs = va_arg(va, ea_t);
+            ea_t ip = va_arg(va, ea_t);
+            bool use32 = va_arg(va, bool);
+            const char* line = va_arg(va, const char*);
+            LOG("assemble %s at 0x%x / 0x%x", line, ea, ip);
+        }
+        break;
     }
     return 0;                     // event is not processed
 }
@@ -427,11 +440,14 @@ ssize_t idaapi plugin_ctx_t::on_event(ssize_t code, va_list va)
 // To be able to hook the ELF callback, we always instantiate the plugin, but might not intercept an IDP events yet!
 static plugmod_t *idaapi init()
 {
+    // Add the ability to assemble things :)
+    // get_ph()->flag |= PR_ASSEMBLE;
     const char* log_file = get_plugin_options("nmips_log_file");
     int argc = 0;
     if (log_file != nullptr)
         loguru::add_file(log_file, loguru::Truncate, loguru::Verbosity_MAX);
     LOG("Logging to log file %s", log_file);
+    // LOG("Assembler: %s", get_ph()->assemblers[0]->name);
 
     auto plugmod = new plugin_ctx_t;
     set_module_data(&data_id, plugmod);
@@ -444,6 +460,8 @@ plugin_ctx_t::plugin_ctx_t()
     relocations = new elf_nanomips_relocations_t;
     // Always hook IDP for ELF callback.
     hook_event_listener(HT_IDP, this);
+    // get_ph()->flag |= PR_ASSEMBLE;
+    // LOG("Assembler: %s", get_ph()->assemblers[0]->name);
 
     load_from_idb();
 
@@ -674,8 +692,15 @@ void plugin_ctx_t::enable_plugin(bool enable)
         // this is very hacky, but I think needed so that we can change the names everywhere :/
         size_t idx = 0;
         const char** reg_names = (const char**)PH.reg_names;
+        processor_t* curr = get_ph();
+        LOG("Processor: %d", curr->id);
+        size_t max_regs = curr->regs_num;
+        // LOG("Assembler: %s", get_ph()->assemblers[0]->name);
         for (auto &name: nanomips_gpr_names)
         {
+            if (idx >= max_regs) {
+                WARN("Processor only has %ld registers, but we expect %ld! Are you sure you loaded a mips processor?", max_regs, nanomips_gpr_names.size());
+            }
             reg_names[idx] = name.c_str();
             idx++;
         }
