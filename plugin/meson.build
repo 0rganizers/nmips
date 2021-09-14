@@ -120,12 +120,17 @@ summary({
 #   is_system: true
 # )
 
-project_args = [
-  '-Wno-nullability-completeness',
-  '-Wno-gnu-zero-variadic-macro-arguments',
-  '-Wno-unused-variable',
-  '-D@0@=1'.format(ida_define)
-]
+project_args = ['-D@0@=1'.format(ida_define)]
+
+if host_machine.system() != 'windows'
+  project_args += [
+    '-Wno-nullability-completeness',
+    '-Wno-gnu-zero-variadic-macro-arguments',
+    '-Wno-unused-variable',
+  ]
+endif
+
+
 
 override_options = []
 
