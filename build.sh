@@ -41,7 +41,7 @@ case "$(uname -s)" in
    CYGWIN*|MINGW32*|MSYS*|MINGW*)
      echo 'MS Windows'
      export CC=clang-cl
-     export CXX=clang++-cl
+     export CXX=clang-cl
      ;;
 
    # Add here more strings to compare
