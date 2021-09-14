@@ -8,11 +8,13 @@
 #endif
 #define __CONFIG_H__ 1
 
-#if !defined(_MSC_VER)
-/* Define to 1 if translation of program messages to the user's native
-   language is requested. */
-#define ENABLE_NLS 1
-#endif
+// #if !defined(_MSC_VER)
+// /* Define to 1 if translation of program messages to the user's native
+//    language is requested. */
+// #define ENABLE_NLS 0
+// #endif
+
+#define ENABLE_NLS 0
 
 /* Define to 1 if you have the declaration of `basename', and to 0 if you
    don't. */

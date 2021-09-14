@@ -1,6 +1,6 @@
 project('nmips', ['cpp', 'c'],
   version : '0.1',
-  default_options : ['warning_level=1'])
+  default_options : ['warning_level=1', 'c_std=c11'])
 
 ida_sdk = get_option('idasdk')
 
@@ -16,8 +16,8 @@ sdk_ldr = ida_sdk / 'ldr'
 # ida_bin = '/Applications/IDA Pro 7.6/ida.app/Contents/MacOS'
 
 # TODO: Hardcoded path
-# hexrays_sdk = ida_bin / 'plugins' / 'hexrays_sdk'
-# hexrays_include = hexrays_sdk / 'include'
+hexrays_sdk = get_option('hexrays_sdk')
+hexrays_include = hexrays_sdk / 'include'
 
 summary({
   'sdk': ida_sdk,
@@ -26,7 +26,7 @@ summary({
   'lib': sdk_lib,
   'user': ida_usr,
   'plugins': plugins,
-  # 'hexrays': hexrays_sdk
+  'hexrays': hexrays_sdk
 }, section: 'IDA Paths')
 
 src_files = files(
@@ -56,7 +56,11 @@ src_files = files(
   'binutils/pls.c'
 )
 
-sdk_inc_dir = include_directories(sdk_inc, sdk_ldr, is_system: true)
+includes = [sdk_inc, sdk_ldr]
+if hexrays_sdk != ''
+  includes += [hexrays_include]
+endif
+sdk_inc_dir = include_directories(includes, is_system: true)
 
 ida_cpu = 'x64'
 ida_os = 'linux'
@@ -64,7 +68,7 @@ ida_compiler = 'gcc'
 ida_bits = '32'
 ida_define = '__LINUX__'
 
-if host_machine.cpu_family() == 'arm'
+if host_machine.cpu_family() == 'aarch64'
   ida_cpu = 'arm64'
 endif
 

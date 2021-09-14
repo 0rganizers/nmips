@@ -1,1 +1,2 @@
 option('idasdk', type : 'string', description: 'Path to the IDA SDK location.')
+option('hexrays_sdk', type : 'string', description: 'Path to hexrays sdk, usually at $IDA_BIN/plugins/hexrays_sdk')
