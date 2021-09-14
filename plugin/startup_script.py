@@ -10,6 +10,9 @@ def main():
     sys.stdout = _orig_stdout
     print("[*] executing startup script...")
     print("[*] loading gdb debugger...")
+    plug: idaapi.plugin_t = ida_loader.find_plugin("gdb_user")
+    print(f"Plugin: {plug}")
+    plug
     res = ida_dbg.load_debugger("gdb", True)
     if res:
         print("[*] successfully loaded gdb debugger")

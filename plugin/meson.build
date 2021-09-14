@@ -50,6 +50,8 @@ src_files = files(
   'log.hpp',
   'nanomips-dis.h',
   'nanomips-dis.c',
+  'gdb.hpp',
+  'gdb.cpp',
 
   #fuck you binutils
   'binutils/nanomips-opc.c',

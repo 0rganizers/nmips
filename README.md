@@ -13,12 +13,15 @@ You can disassemble, decompile and even debug it!
 
 Currently, the following works:
 
-- debugging (needs some messing around with configs and relocations currently)
-- creating relocations for libraries (e.g. libc)
+- debugging
+- creating relocations for libraries (e.g. libc) ``
 - decompiling and disassembling (not all instructions are currently implemented)
 - custom hexrays optimizer to fix stack variables being messed up
 - automatic switch statement detection
 - more stuff I probably forgot
+
+**NOTE:** For debugging to work, you need to modify the gdb config file. Fortunately, this plugin can automatically do this for you. Unfortunately, due to a limitation of the gdb plugin, this will override the normal mips configuration. The plugin can automatically remove the changes again.
+To automatically change the configuration, either use `Edit > Configure GDB for nanoMIPS` or `Ctrl+Shift+Meta+G`.
 
 
 ## Implementation
@@ -40,7 +43,7 @@ Otherwise, decompiler hooks emit the correct hexrays microcode, so that these in
 Download the corresponding version for your OS and put the plugin inside `~/.idapro/plugins`.
 Done! If you open a nanoMIPS ELF file, you should be able to just mash through some of the dialogs and get it working.
 If you want to e.g. apply this to a flat binary file, you can instead just load it as a little endian MIPS file.
-Then, select this plugin from `Edit > Plugins > nmips`.
+Then, select this plugin from `Edit > Plugins > nanoMIPS Processor Support`.
 This will force it on, and it should start to disassemble stuff!
 
 ## Building
@@ -49,12 +52,12 @@ Make sure you have meson installed.
 Then inside the `plugin` directory, just run:
 
 ```bash
-meson setup builddir -Didasdk=$IDA_SDK
+meson setup builddir -Didasdk=$IDA_SDK -Dhexrays_sdk=$IDA_BIN/plugins/hexrays_sdk
 meson compile -C builddir
 ```
 
 ## TODOs
 
-- implement assembler
+- implement assembler -> actually not possible atm :/
 - fix debugging to be nicer
 - rework plugin to be nicer

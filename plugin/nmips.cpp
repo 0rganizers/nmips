@@ -463,6 +463,14 @@ static plugmod_t *idaapi init()
     // LOG("Assembler: %s", get_ph()->assemblers[0]->name);
 
     auto plugmod = new plugin_ctx_t;
+    bool res = register_action(plugmod->config_gdb_plugin_desc);
+    if (!res) {
+        ERR("Failed to register gdb action");
+    }
+    res = attach_action_to_menu("Edit", "nmips:ConfigGDB", 0);
+    if (!res) {
+        ERR("Failed to attach action to menu");
+    }
     set_module_data(&data_id, plugmod);
     return plugmod;
 }
@@ -496,170 +504,6 @@ plugin_ctx_t::~plugin_ctx_t()
     delete mgen;
     // listeners are uninstalled automatically
     // when the owner module is unloaded
-}
-
-const char* config_gdb_plugin_t::set_dbg_option(debugger_t *dbg, const char *keyword, int type, const void *value)
-{
-    const void* set_val = value;
-    lexer_t* lexer = NULL;
-    if (type == IDPOPT_CST) {
-        lexer = create_lexer(NULL, 0);
-        lex_init_string(lexer, (const char*)value);
-        set_val = lexer;
-    }
-   
-    auto res = set_dbg_options(dbg, keyword, IDPOPT_PRI_HIGH, type, set_val);
-
-    if (type == IDPOPT_CST) {
-        destroy_lexer(lexer);
-    }
-
-    if (res == IDPOPT_OK) return NULL;
-    if (res == IDPOPT_BADKEY) return "bad key";
-    if (res == IDPOPT_BADTYPE) return "bad type";
-    if (res == IDPOPT_BADVALUE) return "bad value";
-
-    return res;
-}
-
-int config_gdb_plugin_t::activate(action_activation_ctx_t *)
-{
-    const dbg_info_t* dbg_plugins = NULL;
-    size_t num = get_debugger_plugins(&dbg_plugins);
-    LOG("Have %d dbg plugins", num);
-
-    debugger_t* gdb_dbg = nullptr;
-
-    for (int i = 0; i < num; i++)
-    {
-        const dbg_info_t* plugin = &dbg_plugins[i];
-        // LOG("plugin: %s, %s, %s", plugin->pi->org_name, plugin->pi->path, plugin->dbg->name);
-        if (strcmp(plugin->dbg->name, "gdb") == 0) gdb_dbg = plugin->dbg;
-    }
-
-    if (gdb_dbg != nullptr)
-    {
-        // Note, that the opening parenthesis will be added by gdb itself!
-        const char configs[] = R"(
-            "nanoMIPS":                [ 12,      0,        4,       0,         "mipsl",        "nanomips",         "nanomips-linux.xml",    "1010",     0 ]
-        })";
-        auto res = set_dbg_option(gdb_dbg, "CONFIGURATIONS", IDPOPT_CST, configs);
-        if (res != NULL)
-            LOG("failed setting option CONFIGURATIONS: %s", res);
-
-        const char ida_features[] = R"(
-                "nanomips":
-                {
-                    "org.gnu.gdb.nanomips.cpu":
-                    {
-                    "title": "General registers",
-                    "rename":
-                    {
-                        "r0":  "zero",
-                        "r1":  "at",
-                        "r2":  "t4",
-                        "r3":  "t5",
-                        "r4":  "a0",
-                        "r5":  "a1",
-                        "r6":  "a2",
-                        "r7":  "a3",
-                        "r8":  "a4",
-                        "r9":  "a5",
-                        "r10": "a6",
-                        "r11": "a7",
-                        "r12": "t0",
-                        "r13": "t1",
-                        "r14": "t2",
-                        "r15": "t3",
-                        "r16": "s0",
-                        "r17": "s1",
-                        "r18": "s2",
-                        "r19": "s3",
-                        "r20": "s4",
-                        "r21": "s5",
-                        "r22": "s6",
-                        "r23": "s7",
-                        "r24": "t8",
-                        "r25": "t9",
-                        "r26": "k0",
-                        "r27": "k1",
-                        "r28": "gp",
-                        "r29": "sp",
-                        "r30": "fp",
-                        "r31": "ra"
-                    },
-                    "stack_ptr": "sp",
-                    "frame_ptr": "fp",
-                    "code_ptr": "pc",
-                    "data_ptr":
-                    [
-                        "zero",
-                        "at",
-                        "t4", "t5",
-                        "a0", "a1", "a2", "a3",
-                        "a4", "a5", "a6", "a7", "t0", "t1", "t2", "t3",
-                        "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
-                        "t8", "t9",
-                        "k0", "k1",
-                        "gp", "sp", "ra"
-                    ]
-                    },
-                    "org.gnu.gdb.nanomips.fpu":
-                    {
-                    "title": "FPU registers"
-                    },
-                    "org.gnu.gdb.nanomips.cp0":
-                    {
-                    "title": "CP0 registers"
-                    },
-                    "org.gnu.gdb.nanomips.dsp":
-                    {
-                    "title": "DSP registers"
-                    },
-                    "org.gnu.gdb.nanomips.linux":
-                    {
-                    "title": "Linux registers"
-                    }
-                }
-            }
-        )";
-        res = set_dbg_option(gdb_dbg, "IDA_FEATURES", IDPOPT_CST, ida_features);
-        if (res != NULL)
-            LOG("failed setting option IDA_FEATURES: %s", res);
-
-        const char arch_map[] = R"(
-                "nanomips":         [ 12,       0,    0,   -1 ]
-            }
-        )";
-
-        res = set_dbg_option(gdb_dbg, "ARCH_MAP", IDPOPT_CST, arch_map);
-        if (res != NULL)
-            LOG("failed setting option ARCH_MAP: %s", res);
-
-        const char feature_map[] = R"(
-                "org.gnu.gdb.nanomips.cpu":       [ 12,       0,    0,   -1 ]
-            }
-        )";
-
-        res = set_dbg_option(gdb_dbg, "FEATURE_MAP", IDPOPT_CST, feature_map);
-        if (res != NULL)
-            LOG("failed setting option FEATURE_MAP: %s", res);
-
-        res = set_dbg_option(gdb_dbg, "DEFAULT_CONFIG", IDPOPT_STR, "nanoMIPS");
-        if (res != NULL)
-            LOG("failed setting option DEFAULT_CONFIG: %s", res);
-
-        uval_t val = 0;
-        res = set_dbg_option(gdb_dbg, "NOACK_MODE", IDPOPT_NUM, &val);
-        if (res != NULL)
-            LOG("failed setting option NOACK_MODE: %s", res);
-        //set_dbg_options(gdb_dbg, "DEFAULT_CONFIG", IDPOPT_PRI_HIGH, IDPOPT_CST, "nanoMIPS");
-        //LOG("setting option res: %p", res);
-    } else {
-        LOG("GDB plugin not loaded!");
-    }
-
-    return 1;
 }
 
 void plugin_ctx_t::ensure_mgen_installed()
@@ -755,15 +599,6 @@ void plugin_ctx_t::enable_plugin(bool enable)
         // I am too lazy to write a cross platform way to detect if the page was actually already writeable before.
         // Blame Ilfak for this one.
         // protect_data(reg_page, page_size()*2, false);
-
-        bool res = register_action(config_gdb_plugin_desc);
-        if (!res) {
-            ERR("Failed to register gdb action");
-        }
-        res = attach_action_to_menu("Debugger/Debugger Options", "nmips:ConfigGDB", 0);
-        if (!res) {
-            ERR("Failed to attach action to menu");
-        }
     } else {
         relocations->enable_hooks(false);
         unregister_action("nmips:ConfigGDB");

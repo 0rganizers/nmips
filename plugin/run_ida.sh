@@ -5,8 +5,8 @@ echo "[*] Running IDA"
 IDA_BIN="/Applications/IDA Pro 7.6/ida.app/Contents/MacOS"
 echo "[*] BIN: $IDA_BIN"
 SRC_ROOT=$PWD
-#IN_FILE=$SRC_ROOT/../mips_samples/mipscoder
-IN_FILE=$SRC_ROOT/../../../shared/tctf/release_mipscoder/mipscoder2
+IN_FILE=$SRC_ROOT/../mips_samples/babymips
+# IN_FILE=$SRC_ROOT/../../../shared/tctf/release_mipscoder/mipscoder2
 # IN_FILE=$SRC_ROOT/../mips_samples/libc.so
 echo "[*] Target file: $IN_FILE"
 LOG_FILE=$SRC_ROOT/ida.log

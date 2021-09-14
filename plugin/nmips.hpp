@@ -10,6 +10,7 @@
 #include "mgen.hpp"
 #include "ins.hpp"
 #include "elf_ldr.hpp" 
+#include "gdb.hpp"
 
 uint32 get_feature(insn_t& inst);
 
@@ -25,20 +26,6 @@ struct insn_analysis_state_t
 
     void record_register(unsigned int reg);
     void record_int(bfd_vma val);
-};
-
-struct plugin_ctx_t;
-struct config_gdb_plugin_t : public action_handler_t
-{
-    plugin_ctx_t &plg;
-    config_gdb_plugin_t(plugin_ctx_t &p) : plg(p) {}
-    virtual int idaapi activate(action_activation_ctx_t *) override;
-    virtual action_state_t idaapi update(action_update_ctx_t *) override
-    {
-        return AST_ENABLE_ALWAYS;
-    }
-
-    const char* set_dbg_option(debugger_t *dbg, const char *keyword, int type, const void *value);
 };
 
 //--------------------------------------------------------------------------
@@ -84,10 +71,12 @@ struct plugin_ctx_t : public plugmod_t, public event_listener_t
      * Actions.
      * 
      */
-    config_gdb_plugin_t config_gdb_plugin_ah = config_gdb_plugin_t(*this);
-  const action_desc_t config_gdb_plugin_desc = ACTION_DESC_LITERAL_PLUGMOD(
+
+     config_gdb_plugin_t config_gdb_plugin_ah;
+
+    const action_desc_t config_gdb_plugin_desc = ACTION_DESC_LITERAL_PLUGMOD(
         "nmips:ConfigGDB",
-        "Configure GDB",
+        "Configure GDB for nanoMIPS",
         &config_gdb_plugin_ah,
         this,
         "Ctrl+Shift+Meta+G",
