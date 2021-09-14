@@ -41,8 +41,18 @@
 #include <dbg.hpp>
 #include <lex.hpp>
 
+
+// Need these for mprotecting stuff!
+#if !defined(_MSC_VER)
+
 #include <unistd.h>
 #include <sys/mman.h>
+
+#else
+
+#include <windows.h>
+
+#endif
 
 int data_id;
 
@@ -690,17 +700,30 @@ void plugin_ctx_t::ensure_mgen_installed()
 
 size_t page_size()
 {
+#if defined(_MSC_VER)
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return si.dwPageSize;
+#else
     return getpagesize();
-    return 0x1000;
+#endif
 }
 
 bool protect_data(void* addr, size_t size, bool write_enable)
 {
-    // TODO: windows
+#if defined(_MSC_VER)
+    PAGE_READWRITE
+    DWORD old_prot = 0;
+    DWORD flags = PAGE_READ;
+    if (write_enable) flags = PAGE_READWRITE;
+    bool ret = VirtualProtect(addr, size, flags, &old_prot);
+    return ret;
+#else
     int flags = PROT_READ;
     if (write_enable) flags |= PROT_WRITE;
     int ret = mprotect(addr, size, flags);
     return ret != -1;
+#endif
 }
 
 void plugin_ctx_t::enable_plugin(bool enable)
@@ -730,7 +753,9 @@ void plugin_ctx_t::enable_plugin(bool enable)
             idx++;
         }
 
-        protect_data(reg_page, page_size()*2, false);
+        // I am too lazy to write a cross platform way to detect if the page was actually already writeable before.
+        // Blame Ilfak for this one.
+        // protect_data(reg_page, page_size()*2, false);
 
         bool res = register_action(config_gdb_plugin_desc);
         if (!res) {
