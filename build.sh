@@ -39,9 +39,9 @@ GOOD_PATH=$(echo "$PATH" | sed -e 's/:\/mingw64\/bin\(:\|$\)//')
 GOOD_PATH=$(echo "$GOOD_PATH" | sed -e 's/:\/usr\/bin\(:\|$\)//')
 echo "[*] Fixed Path: $GOOD_PATH"
 cd $CUR/plugin
-PATH=$GOOD_PATH which cl || true
-PATH=$GOOD_PATH cl -help || true
-PATH=$GOOD_PATH cl -std:c++20 -std=c++20 || true
+# PATH=$GOOD_PATH which cl || true
+# PATH=$GOOD_PATH cl -help || true
+# PATH=$GOOD_PATH cl -std:c++20 -std=c++20 || true
 PATH=$GOOD_PATH meson setup $BUILD_DIR/builddir -Didasdk=$IDA_SDK
 echo "[*] Building plugin..."
 PATH=$GOOD_PATH meson compile -C $BUILD_DIR/builddir

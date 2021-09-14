@@ -55,8 +55,10 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
+#if !defined(_MSC_VER)
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
+#endif
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
