@@ -52,8 +52,6 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.os == 'windows-latest' }}
-        with:
-          toolset: "14.XX"
 
       # - name: Really do msbuild this time pls
       #   if: ${{ matrix.os == 'windows-latest' }}
