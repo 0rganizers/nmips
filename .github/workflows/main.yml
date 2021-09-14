@@ -50,8 +50,14 @@ jobs:
           python-version: '3.x'
       - run: pip install meson ninja
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      # - uses: ilammy/msvc-dev-cmd@v1
+      #   if: ${{ matrix.os == 'windows-latest' }}
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.3
         if: ${{ matrix.os == 'windows-latest' }}
+        with:
+          vs-version: '[16.11,16.12)'
 
       # - name: Really do msbuild this time pls
       #   if: ${{ matrix.os == 'windows-latest' }}
