@@ -49,8 +49,8 @@
 
 #define MAPPED_INT(SIZE, LSB, MAP, PRINT_HEX)			\
   {								\
-    typedef char ATTRIBUTE_UNUSED				\
-      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];		\
+    /*typedef char ATTRIBUTE_UNUSED				\
+      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];	*/	\
     static const struct nanomips_mapped_int_operand op = {	\
       { OP_MAPPED_INT, SIZE, LSB, 0, 0 }, MAP, PRINT_HEX	\
     };								\
@@ -83,8 +83,8 @@
 
 #define MAPPED_REG(SIZE, LSB, BANK, MAP)		\
   {							\
-    typedef char ATTRIBUTE_UNUSED			\
-      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)]; \
+    /* typedef char ATTRIBUTE_UNUSED			\
+      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];*/ \
     static const struct nanomips_reg_operand op = {	\
       { OP_REG, SIZE, LSB, 0, 0 }, OP_REG_##BANK, MAP	\
     };							\
@@ -93,8 +93,8 @@
 
 #define SPLIT_MAPPED_REG(SIZE, LSB, SIZE_T, LSB_T, BANK, MAP)	\
   {								\
-    typedef char ATTRIBUTE_UNUSED				\
-      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];		\
+    /* typedef char ATTRIBUTE_UNUSED				\
+      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];	*/	\
     static const struct nanomips_reg_operand op = {		\
       { OP_REG, SIZE, LSB, SIZE_T, LSB_T }, OP_REG_##BANK, MAP	\
     };								\
@@ -103,8 +103,8 @@
 
 #define OPTIONAL_MAPPED_REG(SIZE, LSB, BANK, MAP)		\
   {								\
-    typedef char ATTRIBUTE_UNUSED				\
-      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];		\
+    /* typedef char ATTRIBUTE_UNUSED				\
+      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];*/		\
     static const struct nanomips_reg_operand op = {		\
       { OP_OPTIONAL_REG, SIZE, LSB, 0, 0 }, OP_REG_##BANK, MAP	\
     };								\
@@ -113,10 +113,10 @@
 
 #define REG_PAIR(SIZE, LSB, BANK, MAP)					\
   {									\
-    typedef char ATTRIBUTE_UNUSED					\
+    /* typedef char ATTRIBUTE_UNUSED					\
       static_assert1[(1 << (SIZE)) == ARRAY_SIZE (MAP##1)];		\
     typedef char ATTRIBUTE_UNUSED					\
-      static_assert2[(1 << (SIZE)) == ARRAY_SIZE (MAP##2)];		\
+      static_assert2[(1 << (SIZE)) == ARRAY_SIZE (MAP##2)];*/		\
     static const struct nanomips_reg_pair_operand op = {		\
       { OP_REG_PAIR, SIZE, LSB, 0, 0 }, OP_REG_##BANK, MAP##1, MAP##2	\
     };									\
@@ -200,10 +200,10 @@
 
 #define SPLIT_MAPPED_REG_PAIR(SIZE, LSB, SIZE_T, LSB_T, BANK, MAP1, MAP2) \
   {									\
-    typedef char ATTRIBUTE_UNUSED					\
+    /*typedef char ATTRIBUTE_UNUSED					\
       static_assert1[(1 << (SIZE)) == ARRAY_SIZE (MAP1)];		\
     typedef char ATTRIBUTE_UNUSED					\
-      static_assert2[(1 << (SIZE)) == ARRAY_SIZE (MAP2)];		\
+      static_assert2[(1 << (SIZE)) == ARRAY_SIZE (MAP2)];		*/\
     static const struct nanomips_reg_pair_operand op = {		\
       { OP_REG_PAIR, SIZE, LSB, SIZE_T, LSB_T }, OP_REG_##BANK,		\
       MAP1, MAP2							\
@@ -246,8 +246,8 @@
 
 #define MAPPED_PREV_CHECK(SIZE, LSB, BANK, MAP, GT_OK, LT_OK, EQ_OK, ZERO_OK) \
   {									\
-    typedef char ATTRIBUTE_UNUSED					\
-      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];			\
+    /*typedef char ATTRIBUTE_UNUSED					\
+      static_assert[(1 << (SIZE)) == ARRAY_SIZE (MAP)];*/			\
     static const struct nanomips_mapped_check_prev_operand op = {	\
       { OP_MAPPED_CHECK_PREV, SIZE, LSB, 0, 0 }, OP_REG_##BANK, MAP,	\
       GT_OK, LT_OK, EQ_OK, ZERO_OK					\
