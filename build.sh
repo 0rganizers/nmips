@@ -28,6 +28,30 @@ echo "[*] IDA SDK at $IDA_SDK"
 # make -j `nproc`
 # cd $CUR
 
+case "$(uname -s)" in
+
+   Darwin)
+     echo 'Mac OS X'
+     ;;
+
+   Linux)
+     echo 'Linux'
+     ;;
+
+   CYGWIN*|MINGW32*|MSYS*|MINGW*)
+     echo 'MS Windows'
+     export CC=clang-cl
+     export CXX=clang++-cl
+     ;;
+
+   # Add here more strings to compare
+   # See correspondence table at the bottom of this answer
+
+   *)
+     echo 'Other OS' 
+     ;;
+esac
+
 # if [[ "$OSTYPE" == "darwin"* ]]; then
 #     echo "[*] We are on macOS, force clang!"
 #     export CC=clang
