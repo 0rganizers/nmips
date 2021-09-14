@@ -41,6 +41,9 @@
 #include <dbg.hpp>
 #include <lex.hpp>
 
+#include <unistd.h>
+#include <sys/mman.h>
+
 int data_id;
 
 static const char node_name[] = "$ nanoMIPS Hooked";
@@ -685,6 +688,21 @@ void plugin_ctx_t::ensure_mgen_installed()
     }
 }
 
+size_t page_size()
+{
+    return getpagesize();
+    return 0x1000;
+}
+
+bool protect_data(void* addr, size_t size, bool write_enable)
+{
+    // TODO: windows
+    int flags = PROT_READ;
+    if (write_enable) flags |= PROT_WRITE;
+    int ret = mprotect(addr, size, flags);
+    return ret != -1;
+}
+
 void plugin_ctx_t::enable_plugin(bool enable)
 {
     if (enable) {
@@ -692,6 +710,13 @@ void plugin_ctx_t::enable_plugin(bool enable)
         // this is very hacky, but I think needed so that we can change the names everywhere :/
         size_t idx = 0;
         const char** reg_names = (const char**)PH.reg_names;
+
+        // Pls ilfak let me override the register names fully, so I don't have to do this.
+        void* reg_addr = (void*) reg_names;
+        size_t mask =  ~(page_size() - 1);
+        void* reg_page = (void*)((size_t)reg_addr & mask);
+        protect_data(reg_page, page_size()*2, true);
+        // TODO: error checking
         processor_t* curr = get_ph();
         LOG("Processor: %d", curr->id);
         size_t max_regs = curr->regs_num;
@@ -704,6 +729,9 @@ void plugin_ctx_t::enable_plugin(bool enable)
             reg_names[idx] = name.c_str();
             idx++;
         }
+
+        protect_data(reg_page, page_size()*2, false);
+
         bool res = register_action(config_gdb_plugin_desc);
         if (!res) {
             ERR("Failed to register gdb action");
