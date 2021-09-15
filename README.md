@@ -50,6 +50,8 @@ The plugin registers a bunch of plugin hooks, so that it can then give IDA the i
 In case the instruction is translated to MIPS, it will be decompiled automatically without any issues (well that is if the operands are correctly set. Quite some instructions have a complex operand encoding inside IDA and don't work out of the box.).
 Otherwise, decompiler hooks emit the correct hexrays microcode, so that these instructions can also be decompiled correctly.
 
+If you are wondering how most of this was made possible, the answer is simple: A lot of reversing of IDA itself ;). Mostly the GDB and mips plugin, but also libida.
+
 ## Building
 
 Make sure you have meson installed.
