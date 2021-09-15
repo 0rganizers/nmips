@@ -25,15 +25,15 @@ jobs:
         os: [ubuntu-latest, macos-11, windows-latest]
         include:
           - os: ubuntu-latest
-            pkg: sudo apt-get install -y openssl
+            pkg: sudo apt-get install -y openssl wget
             artifact: libnmips.so
             name: linux
           - os: macos-11
-            pkg: brew install openssl
+            pkg: brew install openssl wget
             artifact: lib*nmips.dylib
             name: macos
           - os: windows-latest
-            pkg: choco install openssl
+            pkg: choco install openssl wget
             artifact: '*nmips.dll'
             name: windows
 
@@ -66,6 +66,7 @@ jobs:
       - name: Build
         env:
           IDA_PASS: ${{ secrets.IDA_PASS }}
+          IDA_USER: ${{ secrets.IDA_USER }}
         run: ./build.sh
         shell: bash
 

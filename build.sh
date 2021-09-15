@@ -4,9 +4,12 @@ echo "[*] Building nmips plugin at $BUILD_DIR!"
 rm -rf $BUILD_DIR || echo "No existing build dir, sadge"
 mkdir $BUILD_DIR
 
-echo "[*] Decrypting idasdk..."
+SDK_DOWNLOAD="https://hex-rays.com/products/ida/support/ida/idasdk76.zip"
+# echo "[*] Decrypting idasdk..."
 # echo $IDA_PASS | age -d -o $BUILD_DIR/idasdk.zip idasdk76.zip
-openssl aes-256-cbc -d -md sha256 -in idasdk.zip -out $BUILD_DIR/idasdk.zip -pass env:IDA_PASS
+# openssl aes-256-cbc -d -md sha256 -in idasdk.zip -out $BUILD_DIR/idasdk.zip -pass env:IDA_PASS
+echo "[*] Downloading idasdk..."
+wget --http-user=$IDA_USER --http-password=$IDA_PASS $SDK_DOWNLOAD -O $BUILD_DIR/idasdk.zip
 echo "[*] Setting up idasdk..."
 cd $BUILD_DIR
 unzip idasdk
