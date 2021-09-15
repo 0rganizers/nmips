@@ -1,7 +1,7 @@
 # nmips
 
 IDA plugin to enable nanoMIPS processor support. This is not limited to simple disassembly, but fully supports decompilation and even fixes up the stack in certain functions using custom microcode optimizers.
-It also supports relocations and automatic EFL detection (even though the UI might not show it, it kinda works).
+It also supports relocations and automatic ELF detection (even though the UI might not show it, it kinda works).
 Debugging also works thanks to GDB and it also does some other stuff, such as automatic switch detections.
 
 Tested on IDA 7.6.
